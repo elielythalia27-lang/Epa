@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <group
+        android:scaleX="0.68"
+        android:scaleY="0.68"
+        android:translateX="17.28"
+        android:translateY="17.28">
+
+        <!-- Ambient Volumetric Glow Core -->
+        <path
+            android:pathData="M54,54 m-40,0 a40,40 0 1,1 80,0 a40,40 0 1,1 -80,0">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:centerX="54"
+                    android:centerY="50"
+                    android:gradientRadius="42"
+                    android:type="radial">
+                    <item android:offset="0.0" android:color="#45FF0055" />
+                    <item android:offset="0.5" android:color="#2500E5FF" />
+                    <item android:offset="1.0" android:color="#00000000" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Left Vertical Film Strip Bar with Glow -->
+        <path
+            android:pathData="M18,22 C18,18 21,15 25,15 L33,15 C37,15 40,18 40,22 L40,82 C40,86 37,89 33,89 L25,89 C21,89 18,86 18,82 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="18"
+                    android:startY="15"
+                    android:endX="40"
+                    android:endY="89"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FF1744" />
+                    <item android:offset="0.5" android:color="#9C27B0" />
+                    <item android:offset="1.0" android:color="#1A237E" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Sprocket Holes -->
+        <path android:pathData="M22,21 H30 V27 H22 Z" android:fillColor="#070B14" />
+        <path android:pathData="M22,37 H30 V43 H22 Z" android:fillColor="#070B14" />
+        <path android:pathData="M22,53 H30 V59 H22 Z" android:fillColor="#070B14" />
+        <path android:pathData="M22,69 H30 V75 H22 Z" android:fillColor="#070B14" />
+
+        <!-- 3D Ruby Play Triangle -->
+        <path
+            android:pathData="M42,24 C39.5,22.5 36,24.2 36,27.2 L36,76.8 C36,79.8 39.5,81.5 42,80.0 L80.5,55.2 C83.0,53.7 83.0,50.3 80.5,48.8 Z"
+            android:strokeWidth="2.8">
+            <aapt:attr name="android:strokeColor">
+                <gradient
+                    android:startX="36"
+                    android:startY="22"
+                    android:endX="83"
+                    android:endY="81"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FFAEB9" />
+                    <item android:offset="0.3" android:color="#FF1744" />
+                    <item android:offset="0.8" android:color="#B71C1C" />
+                    <item android:offset="1.0" android:color="#7F0000" />
+                </gradient>
+            </aapt:attr>
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="36"
+                    android:startY="24"
+                    android:endX="82"
+                    android:endY="80"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FF2A55" />
+                    <item android:offset="0.35" android:color="#E50914" />
+                    <item android:offset="0.75" android:color="#A00015" />
+                    <item android:offset="1.0" android:color="#5B000C" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Gloss Highlight Flare on Top Play Edge -->
+        <path
+            android:pathData="M39,29 L39,48 C46,43 56,41 66,46 L45,30 C42,28 39,29 39,29 Z"
+            android:fillColor="#60FFFFFF" />
+
+        <!-- Downward High-Speed Download Arrow (Electric Cyan) -->
+        <!-- Arrow Stem -->
+        <path
+            android:pathData="M51,54 H61 V76 H51 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="51"
+                    android:startY="54"
+                    android:endX="61"
+                    android:endY="76"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FFFFFF" />
+                    <item android:offset="1.0" android:color="#38BDF8" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Arrow Head Pointer -->
+        <path
+            android:pathData="M42,74 L56,90 L70,74 H63 V74 H49 V74 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="42"
+                    android:startY="74"
+                    android:endX="70"
+                    android:endY="90"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FFFFFF" />
+                    <item android:offset="0.5" android:color="#38BDF8" />
+                    <item android:offset="1.0" android:color="#0284C7" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Sleek Neon Base Tray -->
+        <path
+            android:pathData="M44,96 H68"
+            android:strokeWidth="3.5"
+            android:strokeColor="#38BDF8"
+            android:strokeLineCap="round" />
+
+        <!-- Tech Speed Sparkle / Glint -->
+        <path
+            android:pathData="M88,28 L90,34 L96,36 L90,38 L88,44 L86,38 L80,36 L86,34 Z"
+            android:fillColor="#38BDF8" />
+
+    </group>
+</vector>
