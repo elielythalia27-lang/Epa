@@ -17,10 +17,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Grant execute permissions for Gradle Wrapper
         run: chmod +x gradlew || true
@@ -28,18 +31,25 @@ jobs:
       - name: Generate empty .env file for Secrets Gradle Plugin
         run: touch .env
 
-      - name: Restore debug keystore if present in base64
+      - name: Ensure debug keystore is present
         run: |
           if [ -f "debug.keystore.base64" ] && [ ! -f "debug.keystore" ]; then
             base64 -d debug.keystore.base64 > debug.keystore
+          fi
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          if [ ! -f "debug.keystore" ]; then
+            cp ~/.android/debug.keystore ./debug.keystore
           fi
 
       - name: Build Debug APK with Gradle
         run: |
           if [ -f "./gradlew" ]; then
-            ./gradlew :app:assembleDebug --stacktrace
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace
           else
-            gradle :app:assembleDebug --stacktrace
+            gradle :app:assembleDebug --no-daemon --stacktrace
           fi
 
       - name: Upload Debug APK
@@ -47,3 +57,5 @@ jobs:
         with:
           name: app-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
