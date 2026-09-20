@@ -46,6 +46,7 @@ import com.example.ui.screens.DescargasScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.PlayerScreen
 import com.example.ui.screens.SplashScreen
+import com.example.ui.theme.AppThemeColor
 import com.example.ui.theme.MyApplicationTheme
 import com.example.utils.PermissionHelper
 import com.example.utils.VpnProxyDetector
@@ -129,6 +130,14 @@ fun MainAppNavigation(
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.DARK -> true
         ThemeMode.LIGHT -> false
+    }
+
+    LaunchedEffect(isDark) {
+        val currentColor = uiState.themeColor
+        val corresponding = AppThemeColor.getCorrespondingColor(currentColor, isDark)
+        if (corresponding.id != currentColor.id) {
+            viewModel.setThemeColor(corresponding)
+        }
     }
 
     val activePlayback = uiState.activePlayback

@@ -48,7 +48,7 @@ class PeliculaPreferences(private val context: Context) {
             if (exception is IOException) emit(emptyPreferences()) else throw exception
         }
         .map { preferences ->
-            preferences[DOWNLOAD_FOLDER_NAME_KEY] ?: "Películas (Por defecto)"
+            preferences[DOWNLOAD_FOLDER_NAME_KEY] ?: "Download Free"
         }
 
     val downloadFolderPath: Flow<String> = context.dataStore.data

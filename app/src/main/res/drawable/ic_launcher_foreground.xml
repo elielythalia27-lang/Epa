@@ -45,11 +45,11 @@
             </aapt:attr>
         </path>
 
-        <!-- Sprocket Holes -->
-        <path android:pathData="M22,21 H30 V27 H22 Z" android:fillColor="#070B14" />
-        <path android:pathData="M22,37 H30 V43 H22 Z" android:fillColor="#070B14" />
-        <path android:pathData="M22,53 H30 V59 H22 Z" android:fillColor="#070B14" />
-        <path android:pathData="M22,69 H30 V75 H22 Z" android:fillColor="#070B14" />
+        <!-- Sprocket Holes - Pure White to show background seamlessly -->
+        <path android:pathData="M22,21 H30 V27 H22 Z" android:fillColor="#FFFFFF" />
+        <path android:pathData="M22,37 H30 V43 H22 Z" android:fillColor="#FFFFFF" />
+        <path android:pathData="M22,53 H30 V59 H22 Z" android:fillColor="#FFFFFF" />
+        <path android:pathData="M22,69 H30 V75 H22 Z" android:fillColor="#FFFFFF" />
 
         <!-- 3D Ruby Play Triangle -->
         <path

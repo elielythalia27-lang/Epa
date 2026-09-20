@@ -55,6 +55,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.theme.contrastingTextColor
 
 enum class ScreenRoute(
     val route: String,
@@ -174,7 +175,7 @@ fun AppBottomNav(
                                         badge = {
                                             Badge(
                                                 containerColor = activeColor,
-                                                contentColor = Color.White,
+                                                contentColor = activeColor.contrastingTextColor(),
                                                 modifier = Modifier
                                                     .size(18.dp)
                                                     .offset(x = 6.dp, y = (-4).dp)

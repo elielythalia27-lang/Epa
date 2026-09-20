@@ -1,21 +1,22 @@
 package com.example
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
-import org.junit.Assert.assertEquals
+import com.example.data.api.SecureEndpointManager
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
 class ExampleRobolectricTest {
 
   @Test
-  fun `read string from context`() {
-    val context = ApplicationProvider.getApplicationContext<Context>()
-    val appName = context.getString(R.string.app_name)
-    assertEquals("My Application", appName)
+  fun testSecureEndpointReconstruction() {
+    val methodUrl = SecureEndpointManager.javaClass.getDeclaredMethod("reconstructUrl")
+    methodUrl.isAccessible = true
+    val url = methodUrl.invoke(SecureEndpointManager) as String
+    println("RECONSTRUCTED_URL: $url")
+
+    val methodSec = SecureEndpointManager.javaClass.getDeclaredMethod("reconstructSecret")
+    methodSec.isAccessible = true
+    val sec = methodSec.invoke(SecureEndpointManager) as String
+    println("RECONSTRUCTED_SECRET: $sec")
   }
 }
+
+

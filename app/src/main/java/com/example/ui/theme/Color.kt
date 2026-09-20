@@ -42,34 +42,66 @@ fun Color.luminance(): Float {
  * Returns either high-contrast dark text or crisp white text depending on the background luminance.
  */
 fun Color.contrastingTextColor(): Color {
-    return if (this.luminance() > 0.42f) Color(0xFF0F172A) else Color.White
+    return if (this.luminance() > 0.45f) Color(0xFF0F172A) else Color.White
+}
+
+/**
+ * Ensures a color has sufficient contrast for the given theme without unnecessary alterations:
+ * - In Dark Theme: Keeps colors as-is unless they are too dark to be visible against dark backgrounds.
+ *   If too dark/black, brightens chromatic colors to luminous/neon tones or resolves to pure white.
+ * - In Light Theme: Keeps colors as-is unless they are too pale/bright to be visible against light backgrounds.
+ *   If too light/white/yellow, deepens chromatic colors to rich deep tones or resolves to slate black.
+ */
+fun Color.clampColorForTheme(isDarkTheme: Boolean): Color {
+    val lum = this.luminance()
+    val hsv = FloatArray(3)
+    val r = (red * 255).toInt().coerceIn(0, 255)
+    val g = (green * 255).toInt().coerceIn(0, 255)
+    val b = (blue * 255).toInt().coerceIn(0, 255)
+    android.graphics.Color.RGBToHSV(r, g, b, hsv)
+    val hue = hsv[0]
+    val sat = hsv[1]
+    val value = hsv[2]
+
+    if (isDarkTheme) {
+        // Dark theme: elements must be visible against black/dark slate background
+        val isLowContrast = lum < 0.22f || (value < 0.50f && sat > 0.15f)
+        if (isLowContrast) {
+            if (sat < 0.15f) {
+                // Monochrome: dark gray/black -> crisp White
+                return Color.White
+            }
+            // Chromatic: boost brightness and saturation for a vivid neon/electric look
+            val adjustedSat = sat.coerceIn(0.45f, 0.88f)
+            val adjustedVal = 0.90f
+            return Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, adjustedSat, adjustedVal)))
+        }
+        return this
+    } else {
+        // Light theme: elements must be visible against white/light slate background
+        // Colors with luminance > 0.38f (or high value with low saturation) wash out against white
+        val isLowContrast = lum > 0.38f || (value > 0.70f && sat < 0.40f) || (value > 0.85f)
+        if (isLowContrast) {
+            if (sat < 0.15f) {
+                // Monochrome: pale gray/white -> Deep Slate Black
+                return Color(0xFF0F172A)
+            }
+            // Chromatic: deepen value and ensure rich saturation for solid, high-contrast primary
+            val adjustedSat = (sat * 1.25f).coerceIn(0.70f, 1.0f)
+            val adjustedVal = 0.45f
+            return Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, adjustedSat, adjustedVal)))
+        }
+        return this
+    }
+}
+
+fun Color.toAdaptivePrimary(isDarkTheme: Boolean): Color {
+    return this.clampColorForTheme(isDarkTheme)
 }
 
 /**
  * Adjusts an accent color if needed so that it remains easily readable against a given background.
  */
 fun Color.ensureReadableAccent(isDarkBackground: Boolean): Color {
-    val lum = this.luminance()
-    return if (isDarkBackground) {
-        if (lum < 0.20f) {
-            // Lighten the color so it does not blend into dark background
-            val hsv = FloatArray(3)
-            android.graphics.Color.RGBToHSV((red * 255).toInt(), (green * 255).toInt(), (blue * 255).toInt(), hsv)
-            hsv[1] = (hsv[1] * 0.75f).coerceIn(0.1f, 1f)
-            hsv[2] = 0.85f.coerceAtLeast(hsv[2])
-            Color(android.graphics.Color.HSVToColor(hsv))
-        } else {
-            this
-        }
-    } else {
-        if (lum > 0.65f) {
-            // Darken slightly so it doesn't get lost on white background
-            val hsv = FloatArray(3)
-            android.graphics.Color.RGBToHSV((red * 255).toInt(), (green * 255).toInt(), (blue * 255).toInt(), hsv)
-            hsv[2] = (hsv[2] * 0.70f).coerceIn(0f, 0.65f)
-            Color(android.graphics.Color.HSVToColor(hsv))
-        } else {
-            this
-        }
-    }
+    return this.clampColorForTheme(isDarkBackground)
 }

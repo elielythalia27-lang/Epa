@@ -140,10 +140,20 @@ class DownloadHelper(
                     if (customDir.exists() || customDir.mkdirs()) {
                         customDir
                     } else {
-                        context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir
+                        val fallback = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "DownloadFree")
+                        if (!fallback.exists()) fallback.mkdirs()
+                        fallback
                     }
                 } else {
-                    context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir
+                    val publicDir = try {
+                        File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "DownloadFree")
+                    } catch (_: Exception) {
+                        context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir
+                    }
+                    if (!publicDir.exists()) {
+                        publicDir.mkdirs()
+                    }
+                    publicDir
                 }
                 if (!targetDir.exists()) {
                     targetDir.mkdirs()

@@ -40,25 +40,37 @@ class PeliculaRepository(
     val downloadFolderPath: Flow<String> = preferences.downloadFolderPath
 
     fun getPeliculasFlow(forceRefresh: Boolean = false): Flow<Resource<List<Pelicula>>> = flow {
-        emit(Resource.Loading)
+        // Obtenemos primero la lista en caché para mostrarla instantáneamente sin bloquear en shimmer
+        val cached = try {
+            preferences.cachedPeliculas.first()
+        } catch (_: Exception) {
+            emptyList()
+        }
+
+        if (cached.isNotEmpty() && !forceRefresh) {
+            emit(Resource.Success(cached, isOffline = false))
+        } else {
+            emit(Resource.Loading)
+        }
 
         try {
             // Cargar y desencriptar desde el endpoint seguro
-            val remoteList = try {
-                SecureEndpointManager.fetchAndDecryptPeliculas()
-            } catch (secEx: Exception) {
-                apiService.getPeliculas()
-            }
+            val remoteList = SecureEndpointManager.fetchAndDecryptPeliculas()
 
             if (remoteList.isNotEmpty()) {
                 preferences.saveCachedPeliculas(remoteList)
                 emit(Resource.Success(remoteList, isOffline = false))
+            } else if (cached.isNotEmpty()) {
+                emit(Resource.Success(cached, isOffline = true))
             } else {
                 emit(Resource.Error("No se pudo obtener el catálogo del servidor"))
             }
         } catch (e: Exception) {
-            // Si el usuario no tiene conexión al json al entrar a la aplicación, la lista no debe mostrarse
-            emit(Resource.Error("Sin conexión con el catálogo de películas: ${e.localizedMessage ?: "Comprueba tu conexión"}"))
+            if (cached.isNotEmpty()) {
+                emit(Resource.Success(cached, isOffline = true))
+            } else {
+                emit(Resource.Error("Sin conexión con el catálogo de películas: ${e.localizedMessage ?: "Comprueba tu conexión"}"))
+            }
         }
     }
 

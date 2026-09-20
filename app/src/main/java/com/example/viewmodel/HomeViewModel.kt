@@ -50,7 +50,7 @@ data class HomeUiState(
     val sortOption: SortOption = SortOption.NAME_AZ, // Default: Nombre (A-Z)
     val maxConcurrentDownloads: Int = 3,
     val catalogLayoutMode: String = "GRID_2",
-    val downloadFolderName: String = "Películas (Por defecto)",
+    val downloadFolderName: String = "Download Free",
     val downloadFolderPath: String = "",
     val activePlayback: PlaybackTarget? = null
 )

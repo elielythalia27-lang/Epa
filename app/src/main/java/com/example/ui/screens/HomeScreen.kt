@@ -685,7 +685,7 @@ fun HomeScreen(
             },
             title = {
                 Text(
-                    text = "Canal Oficial de Telegram",
+                    text = "Canal oficial de Telegram",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     textAlign = TextAlign.Center
@@ -693,7 +693,7 @@ fun HomeScreen(
             },
             text = {
                 Text(
-                    text = "Únete a la comunidad de Download Free en Telegram para recibir estrenos de películas, nuevos enlaces y actualizaciones exclusivas.",
+                    text = "Únete a nuestro canal para enterarte de los nuevos estrenos, enlaces actualizados y novedades de la aplicación.",
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center
                 )
@@ -703,15 +703,15 @@ fun HomeScreen(
                     onClick = {
                         showTelegramDialog = false
                         try {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/downloadfreeelielet"))
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/+cOVZ_V9JPTdjN2Ux"))
                             context.startActivity(intent)
                         } catch (e: Exception) {
-                            Toast.makeText(context, "Telegram: @downloadfreeelielet", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "No se pudo abrir el enlace", Toast.LENGTH_LONG).show()
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2AABEE))
                 ) {
-                    Text("Abrir Canal", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Abrir canal", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
