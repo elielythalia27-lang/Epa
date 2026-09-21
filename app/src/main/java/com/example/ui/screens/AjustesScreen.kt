@@ -1241,23 +1241,30 @@ private fun ThemeColorPickerDialog(
         availableColors.chunked(5)
     }
 
-    // Find the row index of the currently selected color
-    val selectedRowIndex = remember(availableColors, currentColor) {
-        val index = availableColors.indexOfFirst {
-            it.id == currentColor.id || it.primary == currentColor.primary
+    // Determine the exact index and row of the currently selected color
+    val selectedColorIndex = remember(availableColors, currentColor) {
+        val idx = availableColors.indexOfFirst {
+            it.id.equals(currentColor.id, ignoreCase = true) ||
+                    it.primary.value == currentColor.primary.value
         }
-        if (index >= 0) index / 5 else 0
+        if (idx >= 0) idx else 0
+    }
+
+    val selectedRowIndex = remember(selectedColorIndex) {
+        selectedColorIndex / 5
+    }
+
+    val initialScrollIndex = remember(selectedRowIndex) {
+        (selectedRowIndex - 1).coerceAtLeast(0)
     }
 
     val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = selectedRowIndex.coerceAtLeast(0)
+        initialFirstVisibleItemIndex = initialScrollIndex
     )
 
-    // Ensure it scrolls to make the selected row visible as soon as the dialog appears
+    // Ensure the dialog immediately displays the selected color upon opening
     LaunchedEffect(selectedRowIndex) {
-        if (selectedRowIndex > 0) {
-            listState.animateScrollToItem(selectedRowIndex)
-        }
+        listState.scrollToItem((selectedRowIndex - 1).coerceAtLeast(0))
     }
 
     Dialog(
@@ -1265,20 +1272,20 @@ private fun ThemeColorPickerDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(20.dp),
             color = dialogBg,
             border = BorderStroke(1.dp, dialogBorder),
             tonalElevation = 6.dp,
             shadowElevation = 12.dp,
             modifier = Modifier
                 .fillMaxWidth(0.92f)
-                .padding(vertical = 24.dp)
+                .padding(horizontal = 16.dp, vertical = 20.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Header with icon, title and close button
                 Row(
@@ -1310,7 +1317,7 @@ private fun ThemeColorPickerDialog(
                             Text(
                                 text = "Color de Énfasis",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
+                                fontSize = 17.sp,
                                 color = textPrimary
                             )
                             Text(
@@ -1334,7 +1341,7 @@ private fun ThemeColorPickerDialog(
                     }
                 }
 
-                // Active color indicator chip (clean HEX only)
+                // Active color indicator chip (HEX code only, no color names)
                 val currentHex = remember(currentColor.primary) {
                     val r = (currentColor.primary.red * 255).toInt().coerceIn(0, 255)
                     val g = (currentColor.primary.green * 255).toInt().coerceIn(0, 255)
@@ -1349,7 +1356,7 @@ private fun ThemeColorPickerDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -1386,13 +1393,14 @@ private fun ThemeColorPickerDialog(
                     }
                 }
 
-                // Color Palette grid with LazyColumn that centers/shows the selected color
+                // Color Palette grid with tight bounds and instant scroll to selection
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(340.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .height(280.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(top = 2.dp, bottom = 2.dp)
                 ) {
                     items(chunkedColors) { rowColors ->
                         Row(
@@ -1401,17 +1409,17 @@ private fun ThemeColorPickerDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             rowColors.forEach { preset ->
-                                val isSelected = currentColor.id == preset.id ||
-                                        (currentColor.primary == preset.primary)
+                                val isSelected = currentColor.id.equals(preset.id, ignoreCase = true) ||
+                                        (currentColor.primary.value == preset.primary.value)
                                 val presetOnColor = remember(preset.primary) { preset.primary.contrastingTextColor() }
 
                                 Box(
                                     modifier = Modifier
-                                        .size(46.dp)
+                                        .size(44.dp)
                                         .clip(CircleShape)
                                         .background(preset.primary)
                                         .border(
-                                            width = if (isSelected) 3.5.dp else 1.dp,
+                                            width = if (isSelected) 3.dp else 1.dp,
                                             color = if (isSelected) (if (isDarkTheme) Color.White else Color(0xFF0F172A)) else dialogBorder,
                                             shape = CircleShape
                                         )
@@ -1426,7 +1434,7 @@ private fun ThemeColorPickerDialog(
                                             imageVector = Icons.Default.Check,
                                             contentDescription = null,
                                             tint = presetOnColor,
-                                            modifier = Modifier.size(22.dp)
+                                            modifier = Modifier.size(20.dp)
                                         )
                                     }
                                 }

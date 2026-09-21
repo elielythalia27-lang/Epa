@@ -214,6 +214,31 @@ class PeliculaPreferences(private val context: Context) {
         }
     }
 
+    suspend fun updateMultipleDownloads(items: List<DownloadItem>) {
+        if (items.isEmpty()) return
+        context.dataStore.edit { preferences ->
+            val json = preferences[DOWNLOADS_KEY]
+            val currentList = if (!json.isNullOrEmpty()) {
+                try {
+                    val type = object : TypeToken<List<DownloadItem>>() {}.type
+                    gson.fromJson<List<DownloadItem>>(json, type)?.toMutableList() ?: mutableListOf()
+                } catch (e: Exception) {
+                    mutableListOf()
+                }
+            } else mutableListOf()
+
+            items.forEach { updatedItem ->
+                val index = currentList.indexOfFirst { it.id == updatedItem.id }
+                if (index >= 0) {
+                    currentList[index] = updatedItem
+                } else {
+                    currentList.add(updatedItem)
+                }
+            }
+            preferences[DOWNLOADS_KEY] = gson.toJson(currentList)
+        }
+    }
+
     suspend fun removeDownload(id: String) {
         context.dataStore.edit { preferences ->
             val json = preferences[DOWNLOADS_KEY]
@@ -222,6 +247,22 @@ class PeliculaPreferences(private val context: Context) {
                     val type = object : TypeToken<List<DownloadItem>>() {}.type
                     val currentList = gson.fromJson<List<DownloadItem>>(json, type)?.toMutableList() ?: mutableListOf()
                     currentList.removeAll { it.id == id }
+                    preferences[DOWNLOADS_KEY] = gson.toJson(currentList)
+                } catch (e: Exception) {
+                    // ignore
+                }
+            }
+        }
+    }
+
+    suspend fun removeDownloads(ids: Set<String>) {
+        context.dataStore.edit { preferences ->
+            val json = preferences[DOWNLOADS_KEY]
+            if (!json.isNullOrEmpty()) {
+                try {
+                    val type = object : TypeToken<List<DownloadItem>>() {}.type
+                    val currentList = gson.fromJson<List<DownloadItem>>(json, type)?.toMutableList() ?: mutableListOf()
+                    currentList.removeAll { ids.contains(it.id) }
                     preferences[DOWNLOADS_KEY] = gson.toJson(currentList)
                 } catch (e: Exception) {
                     // ignore

@@ -526,37 +526,18 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Modern Buffering HUD
+            // Clean Buffering Indicator without intrusive banner
             if (isBuffering && playbackError == null) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = Color.Black.copy(alpha = 0.75f),
-                        shadowElevation = 12.dp
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 28.dp, vertical = 20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(44.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = Color.White.copy(alpha = 0.15f),
-                                strokeWidth = 3.5.dp
-                            )
-                            Text(
-                                text = "Cargando...",
-                                color = Color.White,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 0.3.sp
-                            )
-                        }
-                    }
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(40.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = Color.White.copy(alpha = 0.2f),
+                        strokeWidth = 3.5.dp
+                    )
                 }
             }
 
@@ -882,9 +863,18 @@ fun PlayerScreen(
 
                                 Spacer(modifier = Modifier.width(6.dp))
 
+                                val playerDisplayTitle = remember(title, year) {
+                                    val y = year.trim()
+                                    if (y.isNotBlank() && !title.contains("($y)")) {
+                                        "$title ($y)"
+                                    } else {
+                                        title
+                                    }
+                                }
+
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = title,
+                                        text = playerDisplayTitle,
                                         style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White,
@@ -893,13 +883,6 @@ fun PlayerScreen(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    if (year.isNotBlank()) {
-                                        Text(
-                                            text = if (type.equals("v", ignoreCase = true) || type.equals("video", ignoreCase = true)) "Creador: $year" else year,
-                                            fontSize = 12.sp,
-                                            color = Color.White.copy(alpha = 0.7f)
-                                        )
-                                    }
                                 }
 
                                 // Aspect ratio toggle button (Ajustar / Rellenar / Estirar)

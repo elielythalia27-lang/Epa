@@ -60,7 +60,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val preferences = PeliculaPreferences(application)
     private val apiService = ApiService.create()
     val repository = PeliculaRepository(application, apiService, preferences)
-    val downloadHelper = DownloadHelper(application, preferences, viewModelScope)
+    val downloadHelper = DownloadHelper.getActiveInstance(application)
     private val networkMonitor = NetworkMonitor(application)
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -312,6 +312,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun cancelDownload(item: DownloadItem) {
         downloadHelper.cancelDownload(item)
+    }
+
+    fun deleteMultipleDownloads(items: List<DownloadItem>) {
+        downloadHelper.deleteMultipleDownloads(items)
     }
 
     fun forceStartPendingDownload(item: DownloadItem) {

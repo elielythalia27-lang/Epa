@@ -25,20 +25,14 @@ object VpnProxyDetector {
             val activeNetwork = cm?.activeNetwork
             val caps = if (activeNetwork != null) cm.getNetworkCapabilities(activeNetwork) else null
 
-            var hasVpn = caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
-            if (!hasVpn && cm != null) {
-                for (network in cm.allNetworks) {
-                    val networkCaps = cm.getNetworkCapabilities(network)
-                    if (networkCaps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true) {
-                        hasVpn = true
-                        break
-                    }
-                }
-            }
+            val hasVpn = caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
 
             val proxyHost = System.getProperty("http.proxyHost")
             val proxyPort = System.getProperty("http.proxyPort")
-            val hasProxy = !proxyHost.isNullOrEmpty() && !proxyPort.isNullOrEmpty()
+            val hasProxy = !proxyHost.isNullOrEmpty() &&
+                    proxyHost != "127.0.0.1" &&
+                    proxyHost != "localhost" &&
+                    !proxyPort.isNullOrEmpty()
 
             val isBlocked = hasVpn || hasProxy
             val reason = when {

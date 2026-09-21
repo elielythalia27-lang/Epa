@@ -259,6 +259,9 @@ fun MainAppNavigation(
                                     onCancelDownload = { download ->
                                         viewModel.cancelDownload(download)
                                     },
+                                    onDeleteMultiple = { items ->
+                                        viewModel.deleteMultipleDownloads(items)
+                                    },
                                     onPauseAll = { viewModel.pauseAllDownloads() },
                                     onResumeAll = { viewModel.resumeAllDownloads() },
                                     onCancelAll = { viewModel.cancelAllDownloads() },

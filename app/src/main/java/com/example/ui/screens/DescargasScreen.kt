@@ -3,6 +3,9 @@ package com.example.ui.screens
 import android.os.Environment
 import android.os.StatFs
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -16,9 +19,11 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,6 +57,9 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PauseCircle
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -122,6 +130,7 @@ fun DescargasScreen(
     onPauseDownload: (DownloadItem) -> Unit,
     onResumeDownload: (DownloadItem) -> Unit,
     onCancelDownload: (DownloadItem) -> Unit,
+    onDeleteMultiple: (List<DownloadItem>) -> Unit = {},
     onPauseAll: () -> Unit = {},
     onResumeAll: () -> Unit = {},
     onCancelAll: () -> Unit = {},
@@ -460,9 +469,9 @@ fun DescargasScreen(
                         // TAB 2: PELÍCULAS DESCARGADAS (OFFLINE)
                         DownloadedTab(
                             downloadedList = downloadedList,
-                            freeStorageText = freeStorageText,
                             onPlayOffline = onPlayOffline,
                             onDelete = { itemToDelete = it },
+                            onDeleteMultiple = onDeleteMultiple,
                             onExploreClick = onExploreClick,
                             isDarkTheme = isDarkTheme,
                             cardBg = cardBg,
@@ -968,9 +977,9 @@ private fun ActiveDownloadsTab(
 @Composable
 private fun DownloadedTab(
     downloadedList: List<DownloadItem>,
-    freeStorageText: String,
     onPlayOffline: (DownloadItem) -> Unit,
     onDelete: (DownloadItem) -> Unit,
+    onDeleteMultiple: (List<DownloadItem>) -> Unit,
     onExploreClick: () -> Unit,
     isDarkTheme: Boolean,
     cardBg: Color,
@@ -978,6 +987,10 @@ private fun DownloadedTab(
     textPrimary: Color,
     textSecondary: Color
 ) {
+    var isSelectionMode by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(setOf<String>()) }
+    var showBatchDeleteDialog by remember { mutableStateOf(false) }
+
     if (downloadedList.isEmpty()) {
         Box(
             modifier = Modifier
@@ -1033,92 +1046,221 @@ private fun DownloadedTab(
             }
         }
     } else {
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .testTag("downloaded_movies_list"),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Storage card
-            item {
+            // Sticky multi-selection toolbar
+            AnimatedVisibility(
+                visible = isSelectionMode,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, cardBorder),
-                    colors = CardDefaults.cardColors(containerColor = cardBg),
-                    elevation = CardDefaults.cardElevation(defaultElevation = if (isDarkTheme) 0.dp else 2.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isDarkTheme) Color(0xFF131D31) else Color(0xFFF1F5F9)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(14.dp),
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val allSelected = selectedIds.size == downloadedList.size && downloadedList.isNotEmpty()
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    selectedIds = if (allSelected) emptySet() else downloadedList.map { it.id }.toSet()
+                                }
+                                .padding(4.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF10B981).copy(alpha = if (isDarkTheme) 0.2f else 0.12f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Storage,
-                                    contentDescription = null,
-                                    tint = Color(0xFF10B981),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Column {
-                                Text(
-                                    text = "Espacio libre en almacenamiento",
-                                    fontSize = 11.sp,
-                                    color = textSecondary
-                                )
-                                Text(
-                                    text = freeStorageText,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = textPrimary
-                                )
-                            }
+                            Icon(
+                                imageVector = if (allSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                contentDescription = if (allSelected) "Deseleccionar todo" else "Seleccionar todo",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Text(
+                                text = if (selectedIds.isEmpty()) "Seleccionar todo" else "${selectedIds.size} seleccionadas",
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = textPrimary
+                            )
                         }
 
-                        val totalBytes = downloadedList.sumOf { it.totalBytes }
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFF10B981).copy(alpha = if (isDarkTheme) 0.15f else 0.12f)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(
-                                text = "${downloadedList.size} títulos (${formatByteSize(totalBytes)})",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF10B981),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
+                            Button(
+                                onClick = { showBatchDeleteDialog = true },
+                                enabled = selectedIds.isNotEmpty(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFEF4444),
+                                    disabledContainerColor = Color(0xFFEF4444).copy(alpha = 0.35f)
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(15.dp),
+                                    tint = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Eliminar", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+
+                            TextButton(
+                                onClick = {
+                                    isSelectionMode = false
+                                    selectedIds = emptySet()
+                                },
+                                modifier = Modifier.height(32.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text("Listo", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            }
                         }
                     }
                 }
             }
 
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("downloaded_movies_list"),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Header row when not in selection mode
+                if (!isSelectionMode) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp, vertical = 2.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${downloadedList.size} ${if (downloadedList.size == 1) "descarga" else "descargas"}",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = textSecondary
+                            )
+                            Surface(
+                                onClick = { isSelectionMode = true },
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = if (isDarkTheme) 0.18f else 0.12f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Checklist,
+                                        contentDescription = "Seleccionar",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = "Seleccionar",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
             items(downloadedList, key = { it.id }) { item ->
+                val isSelected = selectedIds.contains(item.id)
                 DownloadedMovieCard(
                     item = item,
-                    onPlay = { onPlayOffline(item) },
+                    isSelectionMode = isSelectionMode,
+                    isSelected = isSelected,
+                    onToggleSelect = {
+                        selectedIds = if (isSelected) selectedIds - item.id else selectedIds + item.id
+                    },
+                    onLongPress = {
+                        if (!isSelectionMode) {
+                            isSelectionMode = true
+                            selectedIds = setOf(item.id)
+                        } else {
+                            selectedIds = if (isSelected) selectedIds - item.id else selectedIds + item.id
+                        }
+                    },
+                    onPlay = {
+                        if (isSelectionMode) {
+                            selectedIds = if (isSelected) selectedIds - item.id else selectedIds + item.id
+                        } else {
+                            onPlayOffline(item)
+                        }
+                    },
                     onDelete = { onDelete(item) },
                     isDarkTheme = isDarkTheme,
                     cardBg = cardBg,
-                    cardBorder = cardBorder,
+                    cardBorder = if (isSelectionMode && isSelected) MaterialTheme.colorScheme.primary else cardBorder,
                     textPrimary = textPrimary,
                     textSecondary = textSecondary
                 )
             }
         }
+    }
+    }
+
+    // Batch deletion confirmation dialog
+    if (showBatchDeleteDialog && selectedIds.isNotEmpty()) {
+        val itemsToDelete = downloadedList.filter { selectedIds.contains(it.id) }
+        AlertDialog(
+            onDismissRequest = { showBatchDeleteDialog = false },
+            containerColor = cardBg,
+            titleContentColor = textPrimary,
+            textContentColor = textSecondary,
+            title = { Text("Eliminar descargas seleccionadas", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "¿Deseas eliminar ${itemsToDelete.size} ${if (itemsToDelete.size == 1) "descarga" else "descargas"} de tu dispositivo? Se liberará espacio en la memoria."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteMultiple(itemsToDelete)
+                        selectedIds = emptySet()
+                        isSelectionMode = false
+                        showBatchDeleteDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Eliminar (${itemsToDelete.size})", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBatchDeleteDialog = false }) {
+                    Text("Cancelar", color = textSecondary)
+                }
+            }
+        )
     }
 }
 
@@ -1224,20 +1366,21 @@ fun ActiveDownloadingCard(
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
-                        if (item.year.isNotEmpty()) {
-                            Text(
-                                text = item.year,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = textSecondary
-                            )
-                        }
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
 
+                    val displayTitle = remember(item.title, item.year) {
+                        val y = item.year.trim()
+                        if (y.isNotEmpty() && !item.title.contains("($y)")) {
+                            "${item.title} ($y)"
+                        } else {
+                            item.title
+                        }
+                    }
+
                     Text(
-                        text = item.title,
+                        text = displayTitle,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = textPrimary,
@@ -1384,7 +1527,7 @@ fun ActiveDownloadingCard(
 fun PendingQueueCard(
     item: DownloadItem,
     queueIndex: Int,
-    onForceStart: () -> Unit,
+    onForceStart: () -> Unit = {},
     onCancel: () -> Unit,
     isDarkTheme: Boolean = true,
     cardBg: Color = Color(0xFF10192C),
@@ -1434,19 +1577,6 @@ fun PendingQueueCard(
                     },
                     modifier = Modifier.fillMaxSize()
                 )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.4f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.HourglassTop,
-                        contentDescription = null,
-                        tint = Color(0xFFF59E0B),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -1465,8 +1595,16 @@ fun PendingQueueCard(
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
+                val displayTitle = remember(item.title, item.year) {
+                    val y = item.year.trim()
+                    if (y.isNotEmpty() && !item.title.contains("($y)")) {
+                        "${item.title} ($y)"
+                    } else {
+                        item.title
+                    }
+                }
                 Text(
-                    text = item.title,
+                    text = displayTitle,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = textPrimary,
@@ -1484,17 +1622,6 @@ fun PendingQueueCard(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
-                    onClick = onForceStart,
-                    modifier = Modifier.size(34.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Iniciar ahora",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                IconButton(
                     onClick = onCancel,
                     modifier = Modifier.size(34.dp)
                 ) {
@@ -1510,12 +1637,17 @@ fun PendingQueueCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DownloadedMovieCard(
     item: DownloadItem,
     onPlay: () -> Unit,
     onDelete: () -> Unit,
     isDarkTheme: Boolean = true,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {},
+    onLongPress: () -> Unit = {},
     cardBg: Color = Color(0xFF10192C),
     cardBorder: Color = Color(0xFF1E293B),
     textPrimary: Color = Color.White,
@@ -1523,15 +1655,34 @@ fun DownloadedMovieCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val displayTitle = remember(item.title, item.year) {
+        val y = item.year.trim()
+        if (y.isNotEmpty() && !item.title.contains("($y)")) {
+            "${item.title} ($y)"
+        } else {
+            item.title
+        }
+    }
 
     Card(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .clickable { onPlay() },
+            .combinedClickable(
+                onClick = {
+                    if (isSelectionMode) onToggleSelect() else onPlay()
+                },
+                onLongClick = {
+                    onLongPress()
+                }
+            ),
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, cardBorder),
-        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = BorderStroke(if (isSelectionMode && isSelected) 2.dp else 1.dp, cardBorder),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelectionMode && isSelected) {
+                MaterialTheme.colorScheme.primary.copy(alpha = if (isDarkTheme) 0.15f else 0.1f)
+            } else cardBg
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isDarkTheme) 0.dp else 2.dp)
     ) {
         Row(
@@ -1540,6 +1691,24 @@ fun DownloadedMovieCard(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Multi-selection indicator
+            if (isSelectionMode) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .padding(end = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                        contentDescription = if (isSelected) "Seleccionada" else "No seleccionada",
+                        tint = if (isSelected) MaterialTheme.colorScheme.primary else textSecondary.copy(alpha = 0.5f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
+            // Thumbnail poster (without play overlay)
             Box(
                 modifier = Modifier
                     .size(width = 72.dp, height = 98.dp)
@@ -1553,7 +1722,7 @@ fun DownloadedMovieCard(
                         .crossfade(150)
                         .size(240, 320)
                         .build(),
-                    contentDescription = item.title,
+                    contentDescription = displayTitle,
                     contentScale = ContentScale.Crop,
                     loading = {
                         Box(
@@ -1564,111 +1733,76 @@ fun DownloadedMovieCard(
                     },
                     modifier = Modifier.fillMaxSize()
                 )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.35f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Reproducir",
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color(0xFF10B981)
-                    ) {
-                        Text(
-                            text = "Descargada",
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                    if (item.year.isNotEmpty()) {
-                        Text(
-                            text = item.year,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = textSecondary
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
+            // Metadata Column
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 Text(
-                    text = item.title,
-                    fontSize = 15.sp,
+                    text = displayTitle,
+                    fontSize = 14.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = textPrimary,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    lineHeight = 19.sp
+                    lineHeight = 18.sp
                 )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = item.formattedTotalSize,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = textSecondary
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Button(
-                        onClick = onPlay,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                        modifier = Modifier.height(32.dp)
+                    // Status badge
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF10B981).copy(alpha = 0.15f)
                     ) {
-                        Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Reproducir", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Text(
+                                text = "Completada",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF10B981)
+                            )
+                        }
                     }
 
-                    IconButton(
-                        onClick = onDelete,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Eliminar",
-                            tint = Color(0xFFEF4444),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+                    // Size info
+                    Text(
+                        text = item.formattedTotalSize,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = textSecondary
+                    )
+                }
+            }
+
+            if (!isSelectionMode) {
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Eliminar",
+                        tint = Color(0xFFEF4444).copy(alpha = 0.85f),
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }

@@ -165,12 +165,12 @@ fun AppBottomNav(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            // Icon with badge if downloads active
+                            // Icon with badge if downloads active and not currently on downloads page
                             Box(
                                 modifier = Modifier.scale(iconScale),
                                 contentAlignment = Alignment.Center
                             ) {
-                                if (screen == ScreenRoute.DOWNLOADS && downloadsCount > 0) {
+                                if (screen == ScreenRoute.DOWNLOADS && downloadsCount > 0 && !isSelected) {
                                     BadgedBox(
                                         badge = {
                                             Badge(

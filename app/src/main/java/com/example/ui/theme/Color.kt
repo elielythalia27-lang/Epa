@@ -64,29 +64,24 @@ fun Color.clampColorForTheme(isDarkTheme: Boolean): Color {
     val value = hsv[2]
 
     if (isDarkTheme) {
-        // Dark theme: elements must be visible against black/dark slate background
-        val isLowContrast = lum < 0.22f || (value < 0.50f && sat > 0.15f)
-        if (isLowContrast) {
+        // Dark theme: elements must be visible against black/dark background
+        val isTooDark = lum < 0.08f || (value < 0.25f && sat > 0.15f)
+        if (isTooDark) {
             if (sat < 0.15f) {
-                // Monochrome: dark gray/black -> crisp White
                 return Color.White
             }
-            // Chromatic: boost brightness and saturation for a vivid neon/electric look
             val adjustedSat = sat.coerceIn(0.45f, 0.88f)
             val adjustedVal = 0.90f
             return Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, adjustedSat, adjustedVal)))
         }
         return this
     } else {
-        // Light theme: elements must be visible against white/light slate background
-        // Colors with luminance > 0.38f (or high value with low saturation) wash out against white
-        val isLowContrast = lum > 0.38f || (value > 0.70f && sat < 0.40f) || (value > 0.85f)
-        if (isLowContrast) {
+        // Light theme: elements must be visible against white/light background
+        val isTooPale = lum > 0.62f || (value > 0.90f && sat < 0.28f)
+        if (isTooPale) {
             if (sat < 0.15f) {
-                // Monochrome: pale gray/white -> Deep Slate Black
                 return Color(0xFF0F172A)
             }
-            // Chromatic: deepen value and ensure rich saturation for solid, high-contrast primary
             val adjustedSat = (sat * 1.25f).coerceIn(0.70f, 1.0f)
             val adjustedVal = 0.45f
             return Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, adjustedSat, adjustedVal)))

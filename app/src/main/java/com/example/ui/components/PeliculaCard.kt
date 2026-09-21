@@ -83,12 +83,12 @@ fun PeliculaCard(
         modifier = modifier
             .fillMaxWidth()
             .testTag("pelicula_card_${pelicula.id}")
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(10.dp))
             .clickable { onCardClick() },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(10.dp),
         border = BorderStroke(if (isDarkTheme) 1.dp else 1.2.dp, cardBorder),
         colors = CardDefaults.cardColors(containerColor = cardBg),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isDarkTheme) 2.dp else 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDarkTheme) 1.5.dp else 2.5.dp)
     ) {
         if (isListMode) {
             Row(
@@ -328,11 +328,11 @@ fun PeliculaCard(
             Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Vertical movie poster area
+                // Vertical movie poster area (compact refined ratio)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(0.72f)
+                        .aspectRatio(0.78f)
                         .background(if (isDarkTheme) Color(0xFF161F33) else Color(0xFFE2E8F0))
                 ) {
                     // Fast SubcomposeAsyncImage with smooth shimmer placeholder
@@ -409,58 +409,33 @@ fun PeliculaCard(
                         }
                     }
 
-                    // Download status indicator overlay on top left (percentage removed per requirement)
-                    if (downloadItem != null) {
-                        when (downloadItem.status) {
-                            DownloadStatus.DOWNLOADING -> {
-                                Surface(
-                                    modifier = Modifier
-                                        .padding(6.dp)
-                                        .align(Alignment.TopStart),
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xDD000000)
-                                ) {
-                                    Box(
-                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 3.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(11.dp),
-                                            strokeWidth = 1.8.dp,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
+                    // Download status indicator overlay on top left (completed indicator kept)
+                    if (downloadItem != null && downloadItem.status == DownloadStatus.COMPLETED) {
+                        Surface(
+                            modifier = Modifier
+                                .padding(6.dp)
+                                .align(Alignment.TopStart),
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xEE10B981)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Descargada",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "Descargada",
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
-                            DownloadStatus.COMPLETED -> {
-                                Surface(
-                                    modifier = Modifier
-                                        .padding(6.dp)
-                                        .align(Alignment.TopStart),
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xEE10B981)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = "Descargada",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(11.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        Text(
-                                            text = "Descargada",
-                                            color = Color.White,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-                            else -> {}
                         }
                     }
                 }
@@ -469,9 +444,9 @@ fun PeliculaCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(42.dp)
+                        .height(34.dp)
                         .background(cardBg)
-                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -480,18 +455,18 @@ fun PeliculaCard(
                     ) {
                         Text(
                             text = pelicula.safeTitle,
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = titleColor,
                             textAlign = TextAlign.Center,
                             maxLines = if (pelicula.isVideo && pelicula.safeYear.isNotBlank()) 1 else 2,
-                            lineHeight = 15.sp,
+                            lineHeight = 13.5.sp,
                             overflow = TextOverflow.Ellipsis
                         )
                         if (pelicula.isVideo && pelicula.safeYear.isNotBlank()) {
                             Text(
                                 text = pelicula.safeYear,
-                                fontSize = 10.5.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFE50914),
                                 textAlign = TextAlign.Center,

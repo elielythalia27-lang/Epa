@@ -108,11 +108,11 @@ fun PeliculaGridItemSkeleton(isDark: Boolean = isSystemInDarkTheme()) {
         elevation = CardDefaults.cardElevation(defaultElevation = if (isDark) 2.dp else 3.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Poster skeleton matching vertical 0.68f aspect ratio
+            // Poster skeleton matching vertical 0.78f aspect ratio
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(0.68f)
+                    .aspectRatio(0.78f)
                     .shimmerEffect(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp), isDark = isDark)
             )
             // Title and badge skeleton
