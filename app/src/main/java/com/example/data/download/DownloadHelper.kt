@@ -209,6 +209,11 @@ class DownloadHelper(
     init {
         instance = this
         createNotificationChannels()
+        scope.launch(Dispatchers.IO) {
+            preferences.maxConcurrentDownloads.collect {
+                checkAndStartNextPending()
+            }
+        }
     }
 
     private fun createNotificationChannels() {
@@ -334,9 +339,15 @@ class DownloadHelper(
 
         scope.launch(Dispatchers.IO) {
             try {
-                val sanitizedTitle = pelicula.safeTitle.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+                val extraTag = if (pelicula.isVideo) pelicula.youtuberName else pelicula.safeYear
+                val displayTitleWithTag = if (extraTag.isNotBlank() && !pelicula.safeTitle.contains("($extraTag)")) {
+                    "${pelicula.safeTitle} ($extraTag)"
+                } else {
+                    pelicula.safeTitle
+                }
+                val cleanForFile = displayTitleWithTag.replace(Regex("[^a-zA-Z0-9(). _-]"), "_")
                 val hashSuffix = kotlin.math.abs(pelicula.id.hashCode()).toString().takeLast(6)
-                val fileName = "${sanitizedTitle}_${hashSuffix}.mp4"
+                val fileName = "${cleanForFile}_${hashSuffix}.mp4"
                 val savedFolderPath = try {
                     preferences.downloadFolderPath.first()
                 } catch (_: Exception) {
@@ -373,19 +384,22 @@ class DownloadHelper(
                     when (existing.status) {
                         DownloadStatus.COMPLETED -> {
                             withContext(Dispatchers.Main) {
-                                Toast.makeText(context, "Esta película ya está descargada", Toast.LENGTH_SHORT).show()
+                                val itemDesc = if (pelicula.isVideo) "Este video ya está descargado" else "Esta película ya está descargada"
+                                Toast.makeText(context, itemDesc, Toast.LENGTH_SHORT).show()
                             }
                             return@launch
                         }
                         DownloadStatus.DOWNLOADING -> {
                             withContext(Dispatchers.Main) {
-                                Toast.makeText(context, "Esta película ya se está descargando", Toast.LENGTH_SHORT).show()
+                                val itemDesc = if (pelicula.isVideo) "Este video ya se está descargando" else "Esta película ya se está descargando"
+                                Toast.makeText(context, itemDesc, Toast.LENGTH_SHORT).show()
                             }
                             return@launch
                         }
                         DownloadStatus.PENDING -> {
                             withContext(Dispatchers.Main) {
-                                Toast.makeText(context, "Esta película ya está en cola de espera", Toast.LENGTH_SHORT).show()
+                                val itemDesc = if (pelicula.isVideo) "Este video ya está en cola de espera" else "Esta película ya está en cola de espera"
+                                Toast.makeText(context, itemDesc, Toast.LENGTH_SHORT).show()
                             }
                             return@launch
                         }
@@ -409,10 +423,10 @@ class DownloadHelper(
                 if (activeCount >= maxLimit) {
                     val pendingItem = DownloadItem(
                         id = pelicula.id,
-                        title = pelicula.safeTitle,
+                        title = displayTitleWithTag,
                         originalVideoUrl = videoUrl,
                         coverUrl = pelicula.safeCoverUrl,
-                        year = pelicula.safeYear,
+                        year = extraTag,
                         type = pelicula.tp ?: "pl",
                         localFilePath = destFile.absolutePath,
                         status = DownloadStatus.PENDING,
@@ -429,10 +443,10 @@ class DownloadHelper(
                 } else {
                     val downloadItem = DownloadItem(
                         id = pelicula.id,
-                        title = pelicula.safeTitle,
+                        title = displayTitleWithTag,
                         originalVideoUrl = videoUrl,
                         coverUrl = pelicula.safeCoverUrl,
-                        year = pelicula.safeYear,
+                        year = extraTag,
                         type = pelicula.tp ?: "pl",
                         localFilePath = destFile.absolutePath,
                         status = DownloadStatus.DOWNLOADING,
@@ -470,10 +484,12 @@ class DownloadHelper(
     ) {
         if (!PermissionHelper.hasNotificationPermission(context)) return
 
-        if (activeTrackersList.isEmpty()) {
+        if (activeTrackersList.size < 2) {
             notificationManager.cancel(SUMMARY_NOTIFICATION_ID)
-            lastSummaryActiveCount = 0
-            DownloadForegroundService.stopService(context)
+            lastSummaryActiveCount = activeTrackersList.size
+            if (activeTrackersList.isEmpty()) {
+                DownloadForegroundService.stopService(context)
+            }
             return
         }
 
@@ -481,7 +497,7 @@ class DownloadHelper(
         val count = activeTrackersList.size
 
         // Throttle group summary updates so Android SystemUI doesn't collapse the expanded notification shade
-        if (count == lastSummaryActiveCount && (now - lastSummaryPostTime) < 3000L) {
+        if (count == lastSummaryActiveCount && (now - lastSummaryPostTime) < 3500L) {
             return
         }
 
@@ -1031,11 +1047,32 @@ class DownloadHelper(
         if (VpnProxyDetector.isVpnOrProxyActive(context)) return
         try {
             val list = preferences.downloads.first()
-            val maxLimit = preferences.maxConcurrentDownloads.first()
-            val activeCount = list.count { it.status == DownloadStatus.DOWNLOADING }
-            if (activeCount < maxLimit) {
-                val nextPending = list.firstOrNull { it.status == DownloadStatus.PENDING }
-                if (nextPending != null) {
+            val maxLimit = preferences.maxConcurrentDownloads.first().coerceIn(1, 5)
+            val downloadingList = list.filter { it.status == DownloadStatus.DOWNLOADING }
+            val activeCount = downloadingList.size
+
+            if (activeCount > maxLimit) {
+                // Si el usuario redujo el límite en Ajustes mientras había más descargas activas,
+                // pausamos y pasamos a cola (PENDING) las descargas activas excedentes más recientes
+                val excessCount = activeCount - maxLimit
+                val itemsToDemote = downloadingList.takeLast(excessCount)
+                for (excessItem in itemsToDemote) {
+                    activeTrackers.remove(excessItem.id)
+                    activeCalls.remove(excessItem.id)?.cancel()
+                    activeJobs.remove(excessItem.id)?.cancel()
+                    notificationManager.cancel(getNotificationId(excessItem.id))
+                    val pendingItem = excessItem.copy(
+                        status = DownloadStatus.PENDING,
+                        speedBytesPerSec = 0L,
+                        etaSeconds = 0L
+                    )
+                    preferences.addOrUpdateDownload(pendingItem)
+                }
+                updateGroupSummaryNotification(activeTrackers.values.toList(), totalBandwidthBytesPerSec.get())
+            } else if (activeCount < maxLimit) {
+                val availableSlots = maxLimit - activeCount
+                val pendingList = list.filter { it.status == DownloadStatus.PENDING }.take(availableSlots)
+                for (nextPending in pendingList) {
                     val file = File(nextPending.localFilePath)
                     val toStart = nextPending.copy(status = DownloadStatus.DOWNLOADING)
                     preferences.addOrUpdateDownload(toStart)

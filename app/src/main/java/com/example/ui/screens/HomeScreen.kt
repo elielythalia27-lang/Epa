@@ -377,7 +377,7 @@ fun HomeScreen(
                                 .testTag("movies_grid"),
                             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp),
                             horizontalArrangement = Arrangement.spacedBy(if (isListMode) 0.dp else 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(if (isListMode) 10.dp else 14.dp)
+                            verticalArrangement = Arrangement.spacedBy(if (isListMode) 12.dp else 16.dp)
                         ) {
                             items(
                                 items = uiState.filteredPeliculas,
@@ -539,8 +539,9 @@ fun HomeScreen(
                                         tint = Color(0xFF10B981),
                                         modifier = Modifier.size(14.dp)
                                     )
+                                    val downloadedBadgeLabel = if (pelicula.isVideo) "Descargado" else "Descargada"
                                     Text(
-                                        text = "Descargada",
+                                        text = downloadedBadgeLabel,
                                         fontSize = 11.sp,
                                         color = Color(0xFF10B981),
                                         fontWeight = FontWeight.Bold
@@ -553,53 +554,55 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(22.dp))
 
-                // Primary Play Button: "Reproducir"
-                Button(
-                    onClick = {
-                        val toPlay = selectedPeliculaForSheet
-                        selectedPeliculaForSheet = null
-                        if (toPlay != null) {
-                            onPlayPelicula(toPlay, 0L)
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Reproducir",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Download Button
                 val isDownloaded = downloadItem?.status == DownloadStatus.COMPLETED
                 val isDownloading = downloadItem?.status == DownloadStatus.DOWNLOADING
                 val isPending = downloadItem?.status == DownloadStatus.PENDING
                 val isPaused = downloadItem?.status == DownloadStatus.PAUSED
 
+                // Primary Play Button: Only shown if NOT already downloaded
+                if (!isDownloaded) {
+                    Button(
+                        onClick = {
+                            val toPlay = selectedPeliculaForSheet
+                            selectedPeliculaForSheet = null
+                            if (toPlay != null) {
+                                onPlayPelicula(toPlay, 0L)
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Reproducir",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+
+                // Download or Downloaded Status Button
                 OutlinedButton(
                     onClick = {
                         val toDown = selectedPeliculaForSheet
                         if (isDownloading || isPending) {
-                            Toast.makeText(context, "Esta película ya se está descargando", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Ya se está descargando", Toast.LENGTH_SHORT).show()
                             selectedPeliculaForSheet = null
                         } else if (isDownloaded) {
-                            Toast.makeText(context, "Esta película ya está descargada", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, if (pelicula.isVideo) "Video listo en tu lista de descargas" else "Película lista en tu lista de descargas", Toast.LENGTH_SHORT).show()
                             selectedPeliculaForSheet = null
                         } else {
                             selectedPeliculaForSheet = null
@@ -655,7 +658,7 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = when {
-                            isDownloaded -> "Ya descargada"
+                            isDownloaded -> if (pelicula.isVideo) "Descargado • Reproducir desde Descargas" else "Descargada • Reproducir desde Descargas"
                             isDownloading -> "Descargando (${downloadItem?.progress ?: 0}%)"
                             isPending -> "En cola de espera..."
                             isPaused -> "Reanudar descarga pausada"

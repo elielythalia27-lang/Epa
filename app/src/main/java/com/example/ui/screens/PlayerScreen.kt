@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.media.AudioManager
 import android.net.Uri
 import android.view.ViewGroup
@@ -91,6 +92,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -147,6 +149,7 @@ fun PlayerScreen(
     var playbackSpeed by remember { mutableFloatStateOf(1.0f) }
     var showSpeedMenu by remember { mutableStateOf(false) }
     var isScreenLocked by remember { mutableStateOf(false) }
+    var isLockIconVisible by remember { mutableStateOf(false) }
     var currentResizeMode by remember { mutableStateOf(VideoResizeMode.FIT) }
 
     // Fast-forward (Press & Hold) state
@@ -156,6 +159,8 @@ fun PlayerScreen(
     var doubleTapFeedback by remember { mutableStateOf<String?>(null) }
 
     // Gestures state: Brightness, Volume, Horizontal Scrub
+    val configuration = LocalConfiguration.current
+    val isOrientationLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     var isLandscape by remember { mutableStateOf(false) }
     val initialBrightness = remember {
         try {
@@ -348,6 +353,14 @@ fun PlayerScreen(
         }
     }
 
+    // Auto-hide lock icon when locked so it doesn't disturb viewing experience
+    LaunchedEffect(isLockIconVisible, isScreenLocked) {
+        if (isScreenLocked && isLockIconVisible) {
+            delay(2500)
+            isLockIconVisible = false
+        }
+    }
+
     fun resetControlsTimer() {
         areControlsVisible = true
         lastInteractionTime = System.currentTimeMillis()
@@ -356,6 +369,9 @@ fun PlayerScreen(
     BackHandler {
         if (isScreenLocked) {
             isScreenLocked = false
+            isLockIconVisible = false
+            areControlsVisible = true
+            resetControlsTimer()
         } else {
             onSavePosition(exoPlayer.currentPosition, exoPlayer.duration)
             onBack()
@@ -419,7 +435,7 @@ fun PlayerScreen(
                         },
                         onTap = {
                             if (isScreenLocked) {
-                                areControlsVisible = !areControlsVisible
+                                isLockIconVisible = !isLockIconVisible
                             } else {
                                 areControlsVisible = !areControlsVisible
                                 if (areControlsVisible) resetControlsTimer()
@@ -795,8 +811,9 @@ fun PlayerScreen(
             }
 
             // Lock Screen Floating Button
+            val showLockButton = if (isScreenLocked) isLockIconVisible else (areControlsVisible && !isBuffering)
             AnimatedVisibility(
-                visible = ((areControlsVisible && !isBuffering) || isScreenLocked),
+                visible = showLockButton,
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier = Modifier
@@ -807,16 +824,24 @@ fun PlayerScreen(
                     modifier = Modifier
                         .size(46.dp)
                         .clip(CircleShape)
-                        .background(if (isScreenLocked) Color(0xFFEF4444) else Color.Black.copy(alpha = 0.6f))
+                        .background(if (isScreenLocked) Color(0xFFEF4444).copy(alpha = 0.85f) else Color.Black.copy(alpha = 0.6f))
                         .clickable {
-                            isScreenLocked = !isScreenLocked
-                            resetControlsTimer()
+                            if (isScreenLocked) {
+                                isScreenLocked = false
+                                isLockIconVisible = false
+                                areControlsVisible = true
+                                resetControlsTimer()
+                            } else {
+                                isScreenLocked = true
+                                isLockIconVisible = true
+                                areControlsVisible = false
+                            }
                         },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (isScreenLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                        contentDescription = "Bloquear controles",
+                        contentDescription = if (isScreenLocked) "Desbloquear controles" else "Bloquear controles",
                         tint = Color.White,
                         modifier = Modifier.size(22.dp)
                     )
@@ -833,6 +858,7 @@ fun PlayerScreen(
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         // Top Gradient Bar: Back, Title, Resize mode, Speed, Rotate
+                        val topBarPaddingTop = if (isOrientationLandscape || isLandscape) 8.dp else 40.dp
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -842,7 +868,7 @@ fun PlayerScreen(
                                         colors = listOf(Color.Black.copy(alpha = 0.9f), Color.Transparent)
                                     )
                                 )
-                                .padding(start = 14.dp, end = 14.dp, top = 44.dp, bottom = 12.dp)
+                                .padding(start = 14.dp, end = 14.dp, top = topBarPaddingTop, bottom = 8.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),

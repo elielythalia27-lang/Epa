@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -207,6 +208,7 @@ fun PeliculaCard(
                     if (downloadItem != null) {
                         when (downloadItem.status) {
                             DownloadStatus.COMPLETED -> {
+                                val downloadedLabel = if (pelicula.isVideo) "Descargado" else "Descargada"
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
                                     color = Color(0x2210B981)
@@ -223,7 +225,7 @@ fun PeliculaCard(
                                             modifier = Modifier.size(12.dp)
                                         )
                                         Text(
-                                            text = "Descargada",
+                                            text = downloadedLabel,
                                             color = Color(0xFF10B981),
                                             fontSize = 10.5.sp,
                                             fontWeight = FontWeight.Bold
@@ -411,6 +413,7 @@ fun PeliculaCard(
 
                     // Download status indicator overlay on top left (completed indicator kept)
                     if (downloadItem != null && downloadItem.status == DownloadStatus.COMPLETED) {
+                        val downloadedLabel = if (pelicula.isVideo) "Descargado" else "Descargada"
                         Surface(
                             modifier = Modifier
                                 .padding(6.dp)
@@ -424,13 +427,13 @@ fun PeliculaCard(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "Descargada",
+                                    contentDescription = downloadedLabel,
                                     tint = Color.White,
                                     modifier = Modifier.size(11.dp)
                                 )
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Text(
-                                    text = "Descargada",
+                                    text = downloadedLabel,
                                     color = Color.White,
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold
@@ -440,13 +443,13 @@ fun PeliculaCard(
                     }
                 }
 
-                // Title Container: clear legible title with creator info for YouTube
+                // Title Container: clear legible title with creator info for YouTube with generous breathing room
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(34.dp)
+                        .heightIn(min = 40.dp)
                         .background(cardBg)
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -455,15 +458,16 @@ fun PeliculaCard(
                     ) {
                         Text(
                             text = pelicula.safeTitle,
-                            fontSize = 11.sp,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = titleColor,
                             textAlign = TextAlign.Center,
                             maxLines = if (pelicula.isVideo && pelicula.safeYear.isNotBlank()) 1 else 2,
-                            lineHeight = 13.5.sp,
+                            lineHeight = 14.sp,
                             overflow = TextOverflow.Ellipsis
                         )
                         if (pelicula.isVideo && pelicula.safeYear.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = pelicula.safeYear,
                                 fontSize = 10.sp,

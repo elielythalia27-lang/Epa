@@ -1092,7 +1092,7 @@ private fun DownloadedTab(
                                 modifier = Modifier.size(22.dp)
                             )
                             Text(
-                                text = if (selectedIds.isEmpty()) "Seleccionar todo" else "${selectedIds.size} seleccionadas",
+                                text = if (allSelected) "Deseleccionar todo" else "Seleccionar todo",
                                 fontSize = 13.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = textPrimary
@@ -1677,26 +1677,27 @@ fun DownloadedMovieCard(
                 }
             ),
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(if (isSelectionMode && isSelected) 2.dp else 1.dp, cardBorder),
+        border = BorderStroke(
+            width = if (isSelectionMode && isSelected) 1.5.dp else 1.dp,
+            color = if (isSelectionMode && isSelected) MaterialTheme.colorScheme.primary else cardBorder
+        ),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelectionMode && isSelected) {
-                MaterialTheme.colorScheme.primary.copy(alpha = if (isDarkTheme) 0.15f else 0.1f)
+                MaterialTheme.colorScheme.primary.copy(alpha = if (isDarkTheme) 0.12f else 0.06f)
             } else cardBg
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isDarkTheme) 0.dp else 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDarkTheme) 0.dp else 1.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Multi-selection indicator
             if (isSelectionMode) {
                 Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .padding(end = 4.dp),
+                    modifier = Modifier.padding(end = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -1711,7 +1712,7 @@ fun DownloadedMovieCard(
             // Thumbnail poster (without play overlay)
             Box(
                 modifier = Modifier
-                    .size(width = 72.dp, height = 98.dp)
+                    .size(width = 68.dp, height = 92.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(if (isDarkTheme) Color(0xFF161F33) else Color(0xFFE2E8F0)),
                 contentAlignment = Alignment.Center
@@ -1752,43 +1753,13 @@ fun DownloadedMovieCard(
                     lineHeight = 18.sp
                 )
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Status badge
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color(0xFF10B981).copy(alpha = 0.15f)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = null,
-                                tint = Color(0xFF10B981),
-                                modifier = Modifier.size(11.dp)
-                            )
-                            Text(
-                                text = "Completada",
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF10B981)
-                            )
-                        }
-                    }
-
-                    // Size info
-                    Text(
-                        text = item.formattedTotalSize,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = textSecondary
-                    )
-                }
+                // Size info only (Completada badge removed as requested)
+                Text(
+                    text = item.formattedTotalSize,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = textSecondary
+                )
             }
 
             if (!isSelectionMode) {

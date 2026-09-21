@@ -1,5 +1,8 @@
 package com.example.data.download
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -7,6 +10,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 
 class DownloadForegroundService : Service() {
@@ -15,6 +19,10 @@ class DownloadForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        // Guarantee immediate startForeground in onCreate so the OS never throws
+        // ForegroundServiceDidNotStartInTimeException under any timing circumstance
+        ensureImmediateForeground()
+
         try {
             val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
             wakeLock = powerManager?.newWakeLock(
@@ -34,10 +42,16 @@ class DownloadForegroundService : Service() {
             return START_NOT_STICKY
         }
 
-        try {
-            val initialNotification = DownloadHelper.getActiveInstance(applicationContext)
-                .buildPlaceholderSummaryNotification()
+        // Re-ensure foreground is attached to current notification state
+        ensureImmediateForeground()
 
+        return START_STICKY
+    }
+
+    private fun ensureImmediateForeground() {
+        try {
+            ensureNotificationChannel()
+            val initialNotification = buildImmediateNotification()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(
                     DownloadHelper.SUMMARY_NOTIFICATION_ID,
@@ -48,8 +62,38 @@ class DownloadForegroundService : Service() {
                 startForeground(DownloadHelper.SUMMARY_NOTIFICATION_ID, initialNotification)
             }
         } catch (_: Exception) {}
+    }
 
-        return START_STICKY
+    private fun ensureNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            if (notificationManager != null && notificationManager.getNotificationChannel(DownloadHelper.CHANNEL_PROGRESS_ID) == null) {
+                val progressChannel = NotificationChannel(
+                    DownloadHelper.CHANNEL_PROGRESS_ID,
+                    DownloadHelper.CHANNEL_PROGRESS_NAME,
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = "Muestra la velocidad, tiempo estimado y barra de porcentaje"
+                    setShowBadge(false)
+                    enableVibration(false)
+                }
+                notificationManager.createNotificationChannel(progressChannel)
+            }
+        }
+    }
+
+    private fun buildImmediateNotification(): Notification {
+        return try {
+            DownloadHelper.getActiveInstance(applicationContext).buildPlaceholderSummaryNotification()
+        } catch (_: Exception) {
+            NotificationCompat.Builder(this, DownloadHelper.CHANNEL_PROGRESS_ID)
+                .setContentTitle("Gestor de Descargas")
+                .setContentText("Descargando en segundo plano...")
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .build()
+        }
     }
 
     private fun stopForegroundServiceInternal() {

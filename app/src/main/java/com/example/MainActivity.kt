@@ -9,6 +9,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -19,6 +21,7 @@ import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -72,10 +75,15 @@ class MainActivity : ComponentActivity() {
                 darkTheme = isDark,
                 themeColor = uiState.themeColor
             ) {
-                MainAppNavigation(
-                    viewModel = homeViewModel,
-                    modifier = Modifier.fillMaxSize()
-                )
+                @OptIn(ExperimentalFoundationApi::class)
+                CompositionLocalProvider(
+                    LocalOverscrollConfiguration provides null
+                ) {
+                    MainAppNavigation(
+                        viewModel = homeViewModel,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
     }

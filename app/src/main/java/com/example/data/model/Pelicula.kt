@@ -52,6 +52,19 @@ data class Pelicula(
 
     val typeLabel: String
         get() = if (isMovie) "Película" else "YouTube"
+
+    val secondaryTag: String
+        get() = if (isVideo) youtuberName else safeYear
+
+    val formattedDisplayTitle: String
+        get() {
+            val tag = secondaryTag.trim()
+            return if (tag.isNotEmpty() && !safeTitle.contains("($tag)")) {
+                "$safeTitle ($tag)"
+            } else {
+                safeTitle
+            }
+        }
 }
 
 data class ContinueWatchingItem(
@@ -118,6 +131,16 @@ data class DownloadItem(
                 hours > 0 -> "Restante: ${hours}h ${mins}m"
                 mins > 0 -> "Restante: ${mins}m ${secs}s"
                 else -> "Restante: ${secs}s"
+            }
+        }
+
+    val formattedDisplayTitle: String
+        get() {
+            val tag = year.trim()
+            return if (tag.isNotEmpty() && !title.contains("($tag)")) {
+                "$title ($tag)"
+            } else {
+                title
             }
         }
 }
