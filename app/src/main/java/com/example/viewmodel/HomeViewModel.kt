@@ -375,6 +375,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setThemeMode(mode: ThemeMode) {
+        _uiState.update { it.copy(themeMode = mode) }
         viewModelScope.launch {
             repository.setThemeMode(mode)
         }

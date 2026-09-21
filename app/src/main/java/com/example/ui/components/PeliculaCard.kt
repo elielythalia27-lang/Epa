@@ -289,42 +289,6 @@ fun PeliculaCard(
                         }
                     }
                 }
-
-                // Download icon button (prevents initiating duplicate when already downloading or completed)
-                val isDownloadingOrPending = downloadItem?.status == DownloadStatus.DOWNLOADING || downloadItem?.status == DownloadStatus.PENDING
-                val isCompleted = downloadItem?.status == DownloadStatus.COMPLETED
-
-                IconButton(
-                    onClick = {
-                        if (!isDownloadingOrPending && !isCompleted) {
-                            onDownloadClick()
-                        }
-                    },
-                    modifier = Modifier.size(42.dp)
-                ) {
-                    if (downloadItem?.status == DownloadStatus.DOWNLOADING) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    } else {
-                        Icon(
-                            imageVector = when {
-                                isCompleted -> Icons.Default.CheckCircle
-                                downloadItem?.status == DownloadStatus.PAUSED -> Icons.Default.Download
-                                else -> Icons.Default.Download
-                            },
-                            contentDescription = "Descargar",
-                            tint = when {
-                                isCompleted -> Color(0xFF10B981)
-                                isDownloadingOrPending -> MaterialTheme.colorScheme.primary
-                                downloadItem?.status == DownloadStatus.PAUSED -> Color(0xFFF59E0B)
-                                else -> MaterialTheme.colorScheme.primary
-                            }
-                        )
-                    }
-                }
             }
         } else {
             Column(
@@ -411,13 +375,13 @@ fun PeliculaCard(
                         }
                     }
 
-                    // Download status indicator overlay on top left (completed indicator kept)
+                    // Download status indicator overlay on bottom-start of poster (prevents overlap with year/badge at TopEnd)
                     if (downloadItem != null && downloadItem.status == DownloadStatus.COMPLETED) {
                         val downloadedLabel = if (pelicula.isVideo) "Descargado" else "Descargada"
                         Surface(
                             modifier = Modifier
                                 .padding(6.dp)
-                                .align(Alignment.TopStart),
+                                .align(Alignment.BottomStart),
                             shape = RoundedCornerShape(6.dp),
                             color = Color(0xEE10B981)
                         ) {

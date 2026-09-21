@@ -15,9 +15,11 @@ import android.widget.FrameLayout
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.example.ui.components.SleekVideoPlayerProgressBar
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -27,6 +29,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -91,6 +95,9 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -144,6 +151,7 @@ fun PlayerScreen(
     var playbackError by remember { mutableStateOf<String?>(null) }
     var currentPositionMs by remember { mutableLongStateOf(initialPositionMs) }
     var durationMs by remember { mutableLongStateOf(0L) }
+    var bufferedPositionMs by remember { mutableLongStateOf(0L) }
     var isDraggingSlider by remember { mutableStateOf(false) }
     var sliderPosition by remember { mutableFloatStateOf(0f) }
     var playbackSpeed by remember { mutableFloatStateOf(1.0f) }
@@ -232,15 +240,18 @@ fun PlayerScreen(
             }
     }
 
-    // Keep screen on and hide notification bar and navigation bar during playback
+    // Keep screen on and configure system bars for seamless video playback
+    val window = activity?.window
+    val insetsController = remember(window) {
+        window?.let { WindowCompat.getInsetsController(it, it.decorView) }
+    }
+
     DisposableEffect(Unit) {
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        val window = activity?.window
-        val insetsController = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
         insetsController?.let { controller ->
-            controller.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            controller.hide(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+            controller.isAppearanceLightStatusBars = false
+            controller.isAppearanceLightNavigationBars = false
         }
         onDispose {
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -248,8 +259,19 @@ fun PlayerScreen(
                 lp.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
                 activity.window.attributes = lp
             }
-            insetsController?.show(WindowInsetsCompat.Type.systemBars())
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            insetsController?.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    // Synchronize system notification bar and navigation bar with controls visibility
+    LaunchedEffect(areControlsVisible) {
+        insetsController?.let { controller ->
+            if (areControlsVisible) {
+                controller.show(WindowInsetsCompat.Type.systemBars())
+            } else {
+                controller.hide(WindowInsetsCompat.Type.systemBars())
+            }
         }
     }
 
@@ -327,20 +349,21 @@ fun PlayerScreen(
         while (isActive) {
             if (!isDraggingSlider && !isSeekingHorizontal) {
                 currentPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
+                bufferedPositionMs = exoPlayer.bufferedPosition.coerceAtLeast(0L)
                 val dur = exoPlayer.duration.coerceAtLeast(0L)
                 if (dur > 0) {
                     durationMs = dur
                     sliderPosition = (currentPositionMs.toFloat() / dur.toFloat()).coerceIn(0f, 1f)
                 }
             }
-            delay(500)
+            delay(350)
         }
     }
 
-    // Auto-hide controls
-    LaunchedEffect(areControlsVisible, lastInteractionTime, isScreenLocked, isHoldingFastForward) {
+    // Auto-hide controls after user interaction or when playback resumes
+    LaunchedEffect(areControlsVisible, lastInteractionTime, isScreenLocked, isHoldingFastForward, isPlaying) {
         if (areControlsVisible && isPlaying && !isScreenLocked && !isHoldingFastForward) {
-            delay(3800)
+            delay(3500)
             areControlsVisible = false
         }
     }
@@ -542,19 +565,13 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Clean Buffering Indicator without intrusive banner
-            if (isBuffering && playbackError == null) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(40.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = Color.White.copy(alpha = 0.2f),
-                        strokeWidth = 3.5.dp
-                    )
-                }
+            // Modern Cinematic Buffering Indicator with smooth orbital spinner and glowing core
+            AnimatedVisibility(
+                visible = isBuffering && playbackError == null,
+                enter = fadeIn(tween(250)),
+                exit = fadeOut(tween(250))
+            ) {
+                PlayerBufferingIndicator()
             }
 
             // Playback Error Banner
@@ -1129,29 +1146,26 @@ fun PlayerScreen(
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             Column(modifier = Modifier.fillMaxWidth()) {
-                                // Slider Scrub Bar
-                                Slider(
-                                    value = sliderPosition,
-                                    onValueChange = { newPos ->
-                                        isDraggingSlider = true
-                                        sliderPosition = newPos
-                                        currentPositionMs = (newPos * durationMs).toLong()
+                                // Sleek Interactive Video Player Scrub Bar
+                                SleekVideoPlayerProgressBar(
+                                    positionMs = currentPositionMs,
+                                    durationMs = durationMs,
+                                    bufferedPositionMs = bufferedPositionMs,
+                                    onSeek = { targetMs ->
+                                        currentPositionMs = targetMs
+                                        exoPlayer.seekTo(targetMs)
                                         resetControlsTimer()
                                     },
-                                    onValueChangeFinished = {
-                                        isDraggingSlider = false
-                                        exoPlayer.seekTo(currentPositionMs)
-                                        resetControlsTimer()
+                                    onSeekingChange = { isSeeking ->
+                                        isDraggingSlider = isSeeking
+                                        if (isSeeking) {
+                                            resetControlsTimer()
+                                        }
                                     },
+                                    activeColor = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(24.dp)
-                                        .testTag("player_progress_slider"),
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = MaterialTheme.colorScheme.primary,
-                                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                                        inactiveTrackColor = Color.White.copy(alpha = 0.3f)
-                                    )
+                                        .testTag("player_progress_slider")
                                 )
 
                                 Spacer(modifier = Modifier.height(2.dp))
@@ -1225,5 +1239,114 @@ private fun formatTimestamp(ms: Long): String {
         String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
     } else {
         String.format(Locale.US, "%02d:%02d", minutes, seconds)
+    }
+}
+
+@Composable
+private fun PlayerBufferingIndicator(
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "player_buffering")
+
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1100, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "orbital_rotation"
+    )
+
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.88f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 850, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "inner_pulse"
+    )
+
+    val primaryColor = MaterialTheme.colorScheme.primary
+
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            shape = RoundedCornerShape(22.dp),
+            color = Color.Black.copy(alpha = 0.72f),
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+            shadowElevation = 10.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier.size(52.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Outer rotating gradient arc
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer(rotationZ = rotation)
+                    ) {
+                        drawArc(
+                            brush = Brush.sweepGradient(
+                                listOf(
+                                    primaryColor.copy(alpha = 0.05f),
+                                    primaryColor.copy(alpha = 0.4f),
+                                    primaryColor,
+                                    Color(0xFF38BDF8)
+                                )
+                            ),
+                            startAngle = 0f,
+                            sweepAngle = 280f,
+                            useCenter = false,
+                            style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                    }
+
+                    // Inner counter-rotating breathing glowing ring
+                    Canvas(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .graphicsLayer(
+                                scaleX = pulseScale,
+                                scaleY = pulseScale,
+                                rotationZ = -rotation * 0.6f
+                            )
+                    ) {
+                        drawArc(
+                            color = primaryColor.copy(alpha = 0.6f),
+                            startAngle = 180f,
+                            sweepAngle = 160f,
+                            useCenter = false,
+                            style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                    }
+
+                    // Center luminous core dot
+                    Box(
+                        modifier = Modifier
+                            .size(9.dp)
+                            .clip(CircleShape)
+                            .background(primaryColor)
+                    )
+                }
+
+                Text(
+                    text = "Cargando...",
+                    color = Color.White.copy(alpha = 0.92f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.6.sp
+                )
+            }
+        }
     }
 }

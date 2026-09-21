@@ -42,6 +42,7 @@ import com.example.data.model.DownloadStatus
 import com.example.data.model.Pelicula
 import com.example.data.model.ThemeMode
 import com.example.ui.components.AppBottomNav
+import com.example.ui.components.CustomToastHost
 import com.example.ui.components.PermissionRequestDialog
 import com.example.ui.components.VpnBlockedScreen
 import com.example.ui.screens.AjustesScreen
@@ -79,10 +80,17 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(
                     LocalOverscrollConfiguration provides null
                 ) {
-                    MainAppNavigation(
-                        viewModel = homeViewModel,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background)
+                    ) {
+                        MainAppNavigation(
+                            viewModel = homeViewModel,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        CustomToastHost(isDarkTheme = isDark)
+                    }
                 }
             }
         }
@@ -297,7 +305,20 @@ fun MainAppNavigation(
                                     isDarkTheme = isDark,
                                     onDarkThemeChange = { viewModel.setDarkTheme(it) },
                                     themeMode = uiState.themeMode,
-                                    onThemeModeChange = { viewModel.setThemeMode(it) },
+                                    onThemeModeChange = { newMode ->
+                                        val currentIsDark = isDark
+                                        val systemIsDark = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+                                        val willBeDark = when (newMode) {
+                                            ThemeMode.SYSTEM -> systemIsDark
+                                            ThemeMode.DARK -> true
+                                            ThemeMode.LIGHT -> false
+                                        }
+                                        val effectiveThemeChanged = willBeDark != currentIsDark
+                                        viewModel.setThemeMode(newMode)
+                                        if (effectiveThemeChanged) {
+                                            (context as? android.app.Activity)?.recreate()
+                                        }
+                                    },
                                     themeColor = uiState.themeColor,
                                     onThemeColorChange = { viewModel.setThemeColor(it) },
                                     defaultFilterType = uiState.selectedType,

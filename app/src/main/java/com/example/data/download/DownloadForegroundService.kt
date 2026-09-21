@@ -104,6 +104,8 @@ class DownloadForegroundService : Service() {
                 @Suppress("DEPRECATION")
                 stopForeground(true)
             }
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            nm?.cancel(DownloadHelper.SUMMARY_NOTIFICATION_ID)
         } catch (_: Exception) {}
         try {
             if (wakeLock?.isHeld == true) {

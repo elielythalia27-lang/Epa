@@ -3,33 +3,55 @@ package com.example.ui.components
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import java.util.Locale
 
 /**
  * Modern Sleek Animated Linear Progress Bar with glowing multi-stop gradient fill,
@@ -190,5 +212,180 @@ fun SleekCircularProgressIndicator(
             useCenter = false,
             style = stroke
         )
+    }
+}
+
+/**
+ * Premium Interactive Video Player Progress Scrub Bar with multi-layer buffered track,
+ * glowing gradient played progress, animated thumb magnification, and floating seek time bubble.
+ */
+@Composable
+fun SleekVideoPlayerProgressBar(
+    positionMs: Long,
+    durationMs: Long,
+    bufferedPositionMs: Long = 0L,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    activeColor: Color = MaterialTheme.colorScheme.primary,
+    bufferedColor: Color = Color.White.copy(alpha = 0.38f),
+    trackColor: Color = Color.White.copy(alpha = 0.20f),
+    onSeekingChange: (Boolean) -> Unit = {}
+) {
+    val totalDuration = durationMs.coerceAtLeast(1L)
+    var isDragging by remember { mutableStateOf(false) }
+    var dragFraction by remember { mutableFloatStateOf(0f) }
+
+    val currentFraction = if (isDragging) dragFraction else (positionMs.toFloat() / totalDuration).coerceIn(0f, 1f)
+    val bufferedFraction = (bufferedPositionMs.toFloat() / totalDuration).coerceIn(0f, 1f)
+
+    val animatedBarHeight by animateDpAsState(
+        targetValue = if (isDragging) 6.dp else 4.dp,
+        animationSpec = tween(150),
+        label = "scrub_height"
+    )
+    val animatedThumbSize by animateDpAsState(
+        targetValue = if (isDragging) 18.dp else 13.dp,
+        animationSpec = tween(150),
+        label = "thumb_size"
+    )
+
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(34.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        val widthPx = constraints.maxWidth.toFloat().coerceAtLeast(1f)
+
+        // Floating timestamp bubble when dragging
+        if (isDragging) {
+            val previewMs = (dragFraction * totalDuration).toLong()
+            val thumbXPx = (dragFraction * widthPx).coerceIn(0f, widthPx)
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset((thumbXPx - 30.dp.roundToPx()).toInt(), -32.dp.roundToPx()) }
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xEE0F172A),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                    shadowElevation = 4.dp
+                ) {
+                    Text(
+                        text = formatPlayerScrubTime(previewMs),
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+
+        // Gesture detection area
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(34.dp)
+                .pointerInput(totalDuration) {
+                    detectTapGestures { offset ->
+                        val targetFraction = (offset.x / widthPx).coerceIn(0f, 1f)
+                        val targetMs = (targetFraction * totalDuration).toLong()
+                        onSeek(targetMs)
+                    }
+                }
+                .pointerInput(totalDuration) {
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            isDragging = true
+                            onSeekingChange(true)
+                            dragFraction = (offset.x / widthPx).coerceIn(0f, 1f)
+                        },
+                        onDragEnd = {
+                            val targetMs = (dragFraction * totalDuration).toLong()
+                            onSeek(targetMs)
+                            isDragging = false
+                            onSeekingChange(false)
+                        },
+                        onDragCancel = {
+                            isDragging = false
+                            onSeekingChange(false)
+                        },
+                        onDrag = { change, _ ->
+                            change.consume()
+                            dragFraction = (change.position.x / widthPx).coerceIn(0f, 1f)
+                        }
+                    )
+                },
+            contentAlignment = Alignment.CenterStart
+        ) {
+            // Background and Progress tracks
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(animatedBarHeight)
+            ) {
+                val cornerRadius = CornerRadius(size.height / 2, size.height / 2)
+                // Inactive base track
+                drawRoundRect(
+                    color = trackColor,
+                    size = size,
+                    cornerRadius = cornerRadius
+                )
+                // Buffered track
+                if (bufferedFraction > 0.005f) {
+                    drawRoundRect(
+                        color = bufferedColor,
+                        size = Size(size.width * bufferedFraction, size.height),
+                        cornerRadius = cornerRadius
+                    )
+                }
+                // Active played track
+                if (currentFraction > 0.002f) {
+                    drawRoundRect(
+                        brush = Brush.horizontalGradient(
+                            listOf(
+                                activeColor,
+                                Color(0xFF38BDF8)
+                            )
+                        ),
+                        size = Size(size.width * currentFraction, size.height),
+                        cornerRadius = cornerRadius
+                    )
+                }
+            }
+
+            // Draggable Thumb
+            val thumbOffsetPx = (currentFraction * widthPx).coerceIn(0f, widthPx)
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset((thumbOffsetPx - (animatedThumbSize / 2).roundToPx()).toInt(), 0) }
+                    .size(animatedThumbSize)
+                    .shadow(elevation = if (isDragging) 6.dp else 3.dp, shape = CircleShape)
+                    .clip(CircleShape)
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                // Inner colored core
+                Box(
+                    modifier = Modifier
+                        .size(if (isDragging) 10.dp else 7.dp)
+                        .clip(CircleShape)
+                        .background(activeColor)
+                )
+            }
+        }
+    }
+}
+
+private fun formatPlayerScrubTime(ms: Long): String {
+    val totalSeconds = (ms / 1000).coerceAtLeast(0)
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format(Locale.US, "%02d:%02d:%02d", 0, minutes, seconds)
     }
 }

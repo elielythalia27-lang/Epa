@@ -175,13 +175,13 @@ fun AjustesScreen(
     var wifiOnlyDownloads by remember { mutableStateOf(false) }
     var showClearCacheDialog by remember { mutableStateOf(false) }
 
-    val screenBg = if (isDarkTheme) Color(0xFF070B18) else Color(0xFFF1F5F9)
-    val cardBg = if (isDarkTheme) Color(0xFF0D1424) else Color.White
-    val cardBorder = if (isDarkTheme) Color(0xFF1E293B) else Color(0xFFA0AEC0)
-    val textPrimary = if (isDarkTheme) Color.White else Color(0xFF0F172A)
-    val textSecondary = if (isDarkTheme) Color(0xFF94A3B8) else Color(0xFF334155)
-    val itemBg = if (isDarkTheme) Color(0xFF131C30) else Color(0xFFF1F5F9)
-    val dividerColor = if (isDarkTheme) Color(0xFF1E293B) else Color(0xFFCBD5E1)
+    val screenBg = MaterialTheme.colorScheme.background
+    val cardBg = MaterialTheme.colorScheme.surface
+    val cardBorder = if (isDarkTheme) Color(0xFF1E293B) else Color(0xFFCBD5E1)
+    val textPrimary = MaterialTheme.colorScheme.onSurface
+    val textSecondary = MaterialTheme.colorScheme.onSurfaceVariant
+    val itemBg = MaterialTheme.colorScheme.surfaceVariant
+    val dividerColor = if (isDarkTheme) Color(0xFF1E293B) else Color(0xFFE2E8F0)
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -400,11 +400,7 @@ fun AjustesScreen(
                                                 ThemeMode.DARK -> true
                                                 ThemeMode.LIGHT -> false
                                             }
-                                            val correspondingColor = AppThemeColor.getCorrespondingColor(themeColor, newIsDark)
                                             onThemeModeChange(mode)
-                                            if (correspondingColor.id != themeColor.id) {
-                                                onThemeColorChange(correspondingColor)
-                                            }
                                         }
                                         .padding(horizontal = 14.dp, vertical = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
@@ -430,16 +426,7 @@ fun AjustesScreen(
                                     RadioButton(
                                         selected = isSelected,
                                         onClick = {
-                                            val newIsDark = when (mode) {
-                                                ThemeMode.SYSTEM -> isDarkTheme
-                                                ThemeMode.DARK -> true
-                                                ThemeMode.LIGHT -> false
-                                            }
-                                            val correspondingColor = AppThemeColor.getCorrespondingColor(themeColor, newIsDark)
                                             onThemeModeChange(mode)
-                                            if (correspondingColor.id != themeColor.id) {
-                                                onThemeColorChange(correspondingColor)
-                                            }
                                         },
                                         colors = RadioButtonDefaults.colors(
                                             selectedColor = MaterialTheme.colorScheme.primary,

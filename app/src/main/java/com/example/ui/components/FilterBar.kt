@@ -226,7 +226,7 @@ fun FilterBar(
 
             val youtubeRed = Color(0xFFE50914)
 
-            // Chip: YouTube
+            // Chip: YouTube - Always kept with red background and white text as requested by user
             FilterChip(
                 selected = selectedType == "VIDEO",
                 onClick = { onTypeSelected("VIDEO") },
@@ -235,17 +235,20 @@ fun FilterBar(
                         imageVector = Icons.Default.PlayCircle,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = if (selectedType == "VIDEO") Color.White else youtubeRed
+                        tint = Color.White
                     )
                 },
-                label = { Text("YouTube", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                label = { Text("YouTube", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
                 shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, if (selectedType == "VIDEO") Color.Transparent else if (isDarkTheme) Color(0xFF1E293B) else Color(0xFFCBD5E1)),
+                border = BorderStroke(
+                    width = if (selectedType == "VIDEO") 2.dp else 1.dp,
+                    color = if (selectedType == "VIDEO") Color.White else Color.Transparent
+                ),
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = youtubeRed,
                     selectedLabelColor = Color.White,
-                    containerColor = chipBg,
-                    labelColor = chipText
+                    containerColor = youtubeRed,
+                    labelColor = Color.White
                 )
             )
         }

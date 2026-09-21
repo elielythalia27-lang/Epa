@@ -16,6 +16,8 @@ import com.example.data.model.DownloadItem
 import com.example.data.model.DownloadStatus
 import com.example.data.model.Pelicula
 import com.example.data.model.formatByteSize
+import com.example.ui.components.AppToastManager
+import com.example.ui.components.ToastType
 import com.example.utils.PermissionHelper
 import com.example.utils.VpnProxyDetector
 import kotlinx.coroutines.CancellationException
@@ -60,6 +62,7 @@ class DownloadHelper(
     private val activeCalls = ConcurrentHashMap<String, okhttp3.Call>()
     private val manuallyPausedIds = ConcurrentHashMap.newKeySet<String>()
     private val manuallyCanceledIds = ConcurrentHashMap.newKeySet<String>()
+    private val demotedIds = ConcurrentHashMap.newKeySet<String>()
     private val lastNotificationUpdate = ConcurrentHashMap<String, Long>()
     private val totalBandwidthBytesPerSec = AtomicLong(4 * 1024 * 1024L)
     @Volatile
@@ -465,13 +468,28 @@ class DownloadHelper(
     }
 
     fun buildPlaceholderSummaryNotification(): android.app.Notification {
+        val active = activeTrackers.values.firstOrNull()
+        if (active != null) {
+            val item = active.item
+            val displayTitle = if (item.year.isNotBlank() && !item.title.contains("(${item.year})")) {
+                "${item.title} (${item.year})"
+            } else {
+                item.title
+            }
+            return NotificationCompat.Builder(context, CHANNEL_PROGRESS_ID)
+                .setContentTitle(displayTitle)
+                .setContentText("Iniciando descarga...")
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setProgress(100, item.progress, true)
+                .setContentIntent(getContentPendingIntent())
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .build()
+        }
         return NotificationCompat.Builder(context, CHANNEL_PROGRESS_ID)
-            .setContentTitle("Gestor de Descargas")
-            .setContentText("Descargando archivos en segundo plano...")
+            .setContentTitle("Descargando")
+            .setContentText("Preparando descarga...")
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setGroup(GROUP_KEY_DOWNLOADS)
-            .setGroupSummary(true)
-            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
             .setContentIntent(getContentPendingIntent())
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -484,12 +502,16 @@ class DownloadHelper(
     ) {
         if (!PermissionHelper.hasNotificationPermission(context)) return
 
+        if (activeTrackersList.isEmpty()) {
+            DownloadForegroundService.stopService(context)
+            lastSummaryActiveCount = 0
+            return
+        }
+
         if (activeTrackersList.size < 2) {
-            notificationManager.cancel(SUMMARY_NOTIFICATION_ID)
             lastSummaryActiveCount = activeTrackersList.size
-            if (activeTrackersList.isEmpty()) {
-                DownloadForegroundService.stopService(context)
-            }
+            // When only 1 active download, it handles SUMMARY_NOTIFICATION_ID directly
+            // Do NOT cancel SUMMARY_NOTIFICATION_ID as it is attached to the foreground service!
             return
         }
 
@@ -506,7 +528,7 @@ class DownloadHelper(
             lastSummaryPostTime = now
 
             val formattedSpeed = formatByteSize(totalSpeed) + "/s"
-            val title = if (count == 1) "1 descarga en curso" else "$count descargas en curso"
+            val title = "$count descargas en curso"
             val text = "Velocidad total: $formattedSpeed"
 
             val inboxStyle = NotificationCompat.InboxStyle()
@@ -544,6 +566,7 @@ class DownloadHelper(
         scope.launch(Dispatchers.IO) {
             try {
                 manuallyPausedIds.add(item.id)
+                demotedIds.remove(item.id)
                 activeTrackers.remove(item.id)
                 activeCalls.remove(item.id)?.cancel()
                 activeJobs.remove(item.id)?.cancel()
@@ -554,8 +577,15 @@ class DownloadHelper(
                     etaSeconds = 0L
                 )
                 preferences.addOrUpdateDownload(pausedItem)
+                notificationManager.cancel(getNotificationId(item.id))
+
+                if (activeTrackers.isEmpty()) {
+                    DownloadForegroundService.stopService(context)
+                    notificationManager.cancel(SUMMARY_NOTIFICATION_ID)
+                } else {
+                    updateGroupSummaryNotification(activeTrackers.values.toList(), totalBandwidthBytesPerSec.get())
+                }
                 showPausedNotification(pausedItem)
-                updateGroupSummaryNotification(activeTrackers.values.toList(), totalBandwidthBytesPerSec.get())
                 checkAndStartNextPending()
             } catch (e: Exception) {
                 // ignore
@@ -565,16 +595,22 @@ class DownloadHelper(
 
     fun resumeDownload(item: DownloadItem) {
         if (VpnProxyDetector.isVpnOrProxyActive(context)) {
-            Toast.makeText(context, "Desactiva la VPN o Proxy para reanudar la descarga", Toast.LENGTH_LONG).show()
+            AppToastManager.show("Desactiva la VPN o Proxy para reanudar la descarga", ToastType.WARNING)
             return
         }
         manuallyPausedIds.remove(item.id)
         manuallyCanceledIds.remove(item.id)
+        demotedIds.remove(item.id)
+        notificationManager.cancel(getNotificationId(item.id))
         scope.launch(Dispatchers.IO) {
             try {
                 val currentList = preferences.downloads.first()
-                val maxLimit = preferences.maxConcurrentDownloads.first()
-                val activeCount = currentList.count { it.status == DownloadStatus.DOWNLOADING }
+                val maxLimit = preferences.maxConcurrentDownloads.first().coerceIn(1, 5)
+                val activeCount = currentList.count {
+                    it.status == DownloadStatus.DOWNLOADING &&
+                    !manuallyCanceledIds.contains(it.id) &&
+                    !manuallyPausedIds.contains(it.id)
+                }
                 val file = File(item.localFilePath)
 
                 if (activeCount >= maxLimit) {
@@ -599,6 +635,8 @@ class DownloadHelper(
         scope.launch(Dispatchers.IO) {
             try {
                 manuallyCanceledIds.add(item.id)
+                manuallyPausedIds.remove(item.id)
+                demotedIds.remove(item.id)
                 activeTrackers.remove(item.id)
                 activeCalls.remove(item.id)?.cancel()
                 activeJobs.remove(item.id)?.cancel()
@@ -608,7 +646,12 @@ class DownloadHelper(
                 }
                 notificationManager.cancel(getNotificationId(item.id))
                 preferences.removeDownload(item.id)
-                updateGroupSummaryNotification(activeTrackers.values.toList(), totalBandwidthBytesPerSec.get())
+                if (activeTrackers.isEmpty()) {
+                    DownloadForegroundService.stopService(context)
+                    notificationManager.cancel(SUMMARY_NOTIFICATION_ID)
+                } else {
+                    updateGroupSummaryNotification(activeTrackers.values.toList(), totalBandwidthBytesPerSec.get())
+                }
                 checkAndStartNextPending()
             } catch (e: Exception) {
                 // ignore
@@ -737,6 +780,9 @@ class DownloadHelper(
     }
 
     private fun launchDownloadJob(item: DownloadItem, destFile: File) {
+        manuallyPausedIds.remove(item.id)
+        manuallyCanceledIds.remove(item.id)
+        demotedIds.remove(item.id)
         activeTrackers.remove(item.id)
         activeJobs[item.id]?.cancel()
         val job = scope.launch(Dispatchers.IO) {
@@ -748,9 +794,7 @@ class DownloadHelper(
                 )
                 preferences.addOrUpdateDownload(paused)
                 showPausedNotification(paused)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Descarga detenida: VPN o Proxy detectado", Toast.LENGTH_LONG).show()
-                }
+                AppToastManager.show("Descarga detenida: VPN o Proxy detectado", ToastType.WARNING)
                 return@launch
             }
 
@@ -761,7 +805,7 @@ class DownloadHelper(
             var completedSuccessfully = false
 
             while (isActive && retryCount < maxRetries && !completedSuccessfully) {
-                if (manuallyPausedIds.contains(item.id) || manuallyCanceledIds.contains(item.id)) break
+                if (manuallyPausedIds.contains(item.id) || manuallyCanceledIds.contains(item.id) || demotedIds.contains(item.id)) break
                 if (VpnProxyDetector.isVpnOrProxyActive(context)) {
                     val paused = item.copy(
                         status = DownloadStatus.PAUSED,
@@ -771,9 +815,7 @@ class DownloadHelper(
                     preferences.addOrUpdateDownload(paused)
                     notificationManager.cancel(getNotificationId(item.id))
                     showPausedNotification(paused)
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Descarga detenida: VPN o Proxy detectado", Toast.LENGTH_LONG).show()
-                    }
+                    AppToastManager.show("Descarga detenida: VPN o Proxy detectado", ToastType.WARNING)
                     break
                 }
 
@@ -861,9 +903,7 @@ class DownloadHelper(
                     preferences.addOrUpdateDownload(paused)
                     notificationManager.cancel(getNotificationId(item.id))
                     showPausedNotification(paused)
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Descarga pausada: se detectó uso de VPN o Proxy", Toast.LENGTH_LONG).show()
-                    }
+                    AppToastManager.show("Descarga pausada: se detectó uso de VPN o Proxy", ToastType.WARNING)
                     pauseAllDownloads()
                     break
                 } catch (e: CancellationException) {
@@ -871,6 +911,9 @@ class DownloadHelper(
                     break
                 } catch (e: Exception) {
                     activeTrackers.remove(item.id)
+                    if (demotedIds.remove(item.id)) {
+                        break
+                    }
                     if (manuallyPausedIds.remove(item.id)) {
                         val paused = item.copy(
                             status = DownloadStatus.PAUSED,
@@ -905,6 +948,9 @@ class DownloadHelper(
                     try { raf?.close() } catch (_: Exception) {}
                 }
             }
+            if (activeTrackers.isEmpty()) {
+                DownloadForegroundService.stopService(context)
+            }
         }
         activeJobs[item.id] = job
     }
@@ -923,14 +969,14 @@ class DownloadHelper(
             } else {
                 item.title
             }
-            val notification = NotificationCompat.Builder(context, CHANNEL_PROGRESS_ID)
+            val isSingle = activeTrackers.size <= 1
+
+            val builder = NotificationCompat.Builder(context, CHANNEL_PROGRESS_ID)
                 .setContentTitle(displayTitle)
                 .setContentText("${item.formattedSpeed} • ${item.progress}% • ${item.formattedEta}")
                 .setSmallIcon(android.R.drawable.stat_sys_download)
                 .setProgress(100, item.progress, item.totalBytes <= 0)
                 .setContentIntent(getContentPendingIntent())
-                .setGroup(GROUP_KEY_DOWNLOADS)
-                .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
                 .addAction(
                     android.R.drawable.ic_media_pause,
                     "Pausar",
@@ -943,8 +989,16 @@ class DownloadHelper(
                 )
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
-                .build()
-            notificationManager.notify(getNotificationId(item.id), notification)
+
+            if (isSingle) {
+                // Update foreground notification directly - prevents duplicate notification and eliminate flicker
+                notificationManager.notify(SUMMARY_NOTIFICATION_ID, builder.build())
+                notificationManager.cancel(getNotificationId(item.id))
+            } else {
+                builder.setGroup(GROUP_KEY_DOWNLOADS)
+                builder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
+                notificationManager.notify(getNotificationId(item.id), builder.build())
+            }
         } catch (e: Exception) {
             // Notification safety
         }
@@ -985,7 +1039,7 @@ class DownloadHelper(
             val notification = NotificationCompat.Builder(context, CHANNEL_PROGRESS_ID)
                 .setContentTitle("Descarga pausada")
                 .setContentText("$displayTitle (${item.progress}%)")
-                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setSmallIcon(android.R.drawable.ic_media_pause)
                 .setContentIntent(getContentPendingIntent())
                 .addAction(
                     android.R.drawable.ic_media_play,
@@ -1048,7 +1102,12 @@ class DownloadHelper(
         try {
             val list = preferences.downloads.first()
             val maxLimit = preferences.maxConcurrentDownloads.first().coerceIn(1, 5)
-            val downloadingList = list.filter { it.status == DownloadStatus.DOWNLOADING }
+            val downloadingList = list.filter {
+                it.status == DownloadStatus.DOWNLOADING &&
+                !manuallyCanceledIds.contains(it.id) &&
+                !manuallyPausedIds.contains(it.id) &&
+                !demotedIds.contains(it.id)
+            }
             val activeCount = downloadingList.size
 
             if (activeCount > maxLimit) {
@@ -1057,6 +1116,7 @@ class DownloadHelper(
                 val excessCount = activeCount - maxLimit
                 val itemsToDemote = downloadingList.takeLast(excessCount)
                 for (excessItem in itemsToDemote) {
+                    demotedIds.add(excessItem.id)
                     activeTrackers.remove(excessItem.id)
                     activeCalls.remove(excessItem.id)?.cancel()
                     activeJobs.remove(excessItem.id)?.cancel()
@@ -1071,8 +1131,15 @@ class DownloadHelper(
                 updateGroupSummaryNotification(activeTrackers.values.toList(), totalBandwidthBytesPerSec.get())
             } else if (activeCount < maxLimit) {
                 val availableSlots = maxLimit - activeCount
-                val pendingList = list.filter { it.status == DownloadStatus.PENDING }.take(availableSlots)
+                val pendingList = list.filter {
+                    it.status == DownloadStatus.PENDING &&
+                    !manuallyCanceledIds.contains(it.id) &&
+                    !manuallyPausedIds.contains(it.id)
+                }.take(availableSlots)
                 for (nextPending in pendingList) {
+                    manuallyPausedIds.remove(nextPending.id)
+                    manuallyCanceledIds.remove(nextPending.id)
+                    demotedIds.remove(nextPending.id)
                     val file = File(nextPending.localFilePath)
                     val toStart = nextPending.copy(status = DownloadStatus.DOWNLOADING)
                     preferences.addOrUpdateDownload(toStart)

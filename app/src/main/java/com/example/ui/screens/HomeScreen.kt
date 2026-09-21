@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -60,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -82,6 +84,7 @@ import com.example.ui.components.FilterBar
 import com.example.ui.components.PeliculaCard
 import com.example.ui.components.PeliculaGridSkeleton
 import com.example.ui.components.PeliculaListSkeleton
+import com.example.ui.components.SleekDeterminateCircularProgress
 import com.example.ui.components.shimmerEffect
 import com.example.viewmodel.HomeUiState
 
@@ -106,10 +109,20 @@ fun HomeScreen(
     var showTelegramDialog by remember { mutableStateOf(false) }
 
     val isDark = isDarkTheme
-    val screenBg = if (isDark) Color(0xFF070B18) else Color(0xFFF1F5F9)
-    val titleTextColor = if (isDark) Color.White else Color(0xFF0F172A)
-    val subtitleTextColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF475569)
-    val badgeBg = if (isDark) Color(0xFF131C30) else Color(0xFFE2E8F0)
+    val screenBg = MaterialTheme.colorScheme.background
+    val titleTextColor = MaterialTheme.colorScheme.onBackground
+    val subtitleTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val badgeBg = MaterialTheme.colorScheme.surfaceVariant
+
+    val gridStateAll = rememberLazyGridState()
+    val gridStateMovies = rememberLazyGridState()
+    val gridStateVideos = rememberLazyGridState()
+
+    val activeGridState = when (uiState.selectedType) {
+        "MOVIE" -> gridStateMovies
+        "VIDEO" -> gridStateVideos
+        else -> gridStateAll
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -354,13 +367,6 @@ fun HomeScreen(
                             uiState.downloads.associateBy { it.id }
                         }
 
-                        val gridState = rememberLazyGridState()
-
-                        // Prevent list from being scrolled when switching category tabs
-                        LaunchedEffect(uiState.selectedType) {
-                            gridState.scrollToItem(0)
-                        }
-
                         val isListMode = uiState.catalogLayoutMode == "LIST"
                         val columns = when (uiState.catalogLayoutMode) {
                             "GRID_3" -> GridCells.Fixed(3)
@@ -368,10 +374,10 @@ fun HomeScreen(
                             else -> GridCells.Fixed(2)
                         }
 
-                        // Responsive catalog grid supporting 2-col, 3-col, and detailed list
+                        // Responsive catalog grid supporting 2-col, 3-col, and detailed list with independent scroll per tab
                         LazyVerticalGrid(
                             columns = columns,
-                            state = gridState,
+                            state = activeGridState,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .testTag("movies_grid"),
@@ -409,7 +415,10 @@ fun HomeScreen(
     selectedPeliculaForSheet?.let { pelicula ->
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val downloadItem = uiState.downloads.find { it.id == pelicula.id }
-        val sheetBg = if (isDark) Color(0xFF0F172A) else Color.White
+        val sheetBg = MaterialTheme.colorScheme.surface
+        val sheetTitleColor = MaterialTheme.colorScheme.onSurface
+        val sheetBadgeBg = MaterialTheme.colorScheme.surfaceVariant
+        val sheetBadgeTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
         ModalBottomSheet(
             onDismissRequest = { selectedPeliculaForSheet = null },
@@ -466,7 +475,7 @@ fun HomeScreen(
                             text = pelicula.safeTitle,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = titleTextColor,
+                            color = sheetTitleColor,
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -483,7 +492,7 @@ fun HomeScreen(
                                 Text(
                                     text = if (pelicula.isVideo) "YouTube" else "Película",
                                     fontSize = 11.sp,
-                                    color = Color.White,
+                                    color = if (pelicula.isVideo) Color.White else MaterialTheme.colorScheme.onPrimary,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                 )
@@ -494,12 +503,12 @@ fun HomeScreen(
                                 if (creator.isNotEmpty() && !creator.equals("YouTube", ignoreCase = true)) {
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
-                                        color = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0)
+                                        color = sheetBadgeBg
                                     ) {
                                         Text(
                                             text = creator,
                                             fontSize = 11.sp,
-                                            color = titleTextColor,
+                                            color = sheetBadgeTextColor,
                                             fontWeight = FontWeight.SemiBold,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
@@ -510,12 +519,12 @@ fun HomeScreen(
                             } else if (pelicula.safeYear.isNotEmpty()) {
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
-                                    color = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0)
+                                    color = sheetBadgeBg
                                 ) {
                                     Text(
                                         text = pelicula.safeYear,
                                         fontSize = 11.sp,
-                                        color = titleTextColor,
+                                        color = sheetBadgeTextColor,
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                     )
@@ -594,79 +603,221 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(10.dp))
                 }
 
-                // Download or Downloaded Status Button
-                OutlinedButton(
-                    onClick = {
-                        val toDown = selectedPeliculaForSheet
-                        if (isDownloading || isPending) {
-                            Toast.makeText(context, "Ya se está descargando", Toast.LENGTH_SHORT).show()
-                            selectedPeliculaForSheet = null
-                        } else if (isDownloaded) {
-                            Toast.makeText(context, if (pelicula.isVideo) "Video listo en tu lista de descargas" else "Película lista en tu lista de descargas", Toast.LENGTH_SHORT).show()
-                            selectedPeliculaForSheet = null
-                        } else {
-                            selectedPeliculaForSheet = null
-                            if (toDown != null) {
-                                onDownloadPelicula(toDown)
+                // Download Status or Action Component
+                when {
+                    isDownloading -> {
+                        // Sleek Linear / Circular Progress Card (Silent tap, no unwanted toast)
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                val progressFloat = ((downloadItem?.progress ?: 0) / 100f).coerceIn(0f, 1f)
+                                // Smooth visual gradient progress fill
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(progressFloat)
+                                        .background(
+                                            Brush.horizontalGradient(
+                                                listOf(
+                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+                                                )
+                                            )
+                                        )
+                                )
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        SleekDeterminateCircularProgress(
+                                            progress = progressFloat,
+                                            size = 26.dp,
+                                            strokeWidth = 3.dp,
+                                            isDarkTheme = isDark,
+                                            gradientColors = listOf(
+                                                MaterialTheme.colorScheme.primary,
+                                                Color(0xFF38BDF8)
+                                            )
+                                        )
+                                        Column(verticalArrangement = Arrangement.Center) {
+                                            Text(
+                                                text = "Descargando (${downloadItem?.progress ?: 0}%)",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            val speedText = if (!downloadItem?.formattedSpeed.isNullOrBlank() && downloadItem?.formattedSpeed != "0 B") {
+                                                "${downloadItem?.formattedSpeed} • ${downloadItem?.formattedEta}"
+                                            } else {
+                                                "Iniciando descarga..."
+                                            }
+                                            Text(
+                                                text = speedText,
+                                                fontSize = 11.5.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    Icon(
+                                        imageVector = Icons.Default.Download,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
                             }
                         }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(
-                        1.dp,
-                        when {
-                            isDownloaded -> Color(0xFF10B981)
-                            isDownloading -> MaterialTheme.colorScheme.primary
-                            isPaused -> Color(0xFFF59E0B)
-                            else -> if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1)
-                        }
-                    ),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = when {
-                            isDownloaded -> Color(0xFF10B981)
-                            isDownloading -> MaterialTheme.colorScheme.primary
-                            isPaused -> Color(0xFFF59E0B)
-                            else -> titleTextColor
-                        }
-                    )
-                ) {
-                    if (isDownloading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    } else {
-                        Icon(
-                            imageVector = when {
-                                isDownloaded -> Icons.Default.CheckCircle
-                                isPaused -> Icons.Default.Pause
-                                else -> Icons.Default.Download
-                            },
-                            contentDescription = null,
-                            tint = when {
-                                isDownloaded -> Color(0xFF10B981)
-                                isPaused -> Color(0xFFF59E0B)
-                                else -> titleTextColor
-                            },
-                            modifier = Modifier.size(20.dp)
-                        )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = when {
-                            isDownloaded -> if (pelicula.isVideo) "Descargado • Reproducir desde Descargas" else "Descargada • Reproducir desde Descargas"
-                            isDownloading -> "Descargando (${downloadItem?.progress ?: 0}%)"
-                            isPending -> "En cola de espera..."
-                            isPaused -> "Reanudar descarga pausada"
-                            else -> "Descargar"
-                        },
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp
-                    )
+
+                    isPending -> {
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(54.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Column(verticalArrangement = Arrangement.Center) {
+                                    Text(
+                                        text = "En cola de espera...",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Iniciará automáticamente según el límite",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    isDownloaded -> {
+                        OutlinedButton(
+                            onClick = {
+                                selectedPeliculaForSheet = null
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            border = BorderStroke(1.2.dp, Color(0xFF10B981)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFF10B981)
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (pelicula.isVideo) "Descargado • En tu lista de Descargas" else "Descargada • En tu lista de Descargas",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+
+                    isPaused -> {
+                        OutlinedButton(
+                            onClick = {
+                                val toDown = selectedPeliculaForSheet
+                                selectedPeliculaForSheet = null
+                                if (toDown != null) {
+                                    onDownloadPelicula(toDown)
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            border = BorderStroke(1.2.dp, Color(0xFFF59E0B)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFFF59E0B)
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Pause,
+                                contentDescription = null,
+                                tint = Color(0xFFF59E0B),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Reanudar descarga pausada (${downloadItem?.progress ?: 0}%)",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+
+                    else -> {
+                        OutlinedButton(
+                            onClick = {
+                                val toDown = selectedPeliculaForSheet
+                                selectedPeliculaForSheet = null
+                                if (toDown != null) {
+                                    onDownloadPelicula(toDown)
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            border = BorderStroke(1.dp, if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Descargar",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
                 }
             }
         }
